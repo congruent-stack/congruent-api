@@ -17,12 +17,15 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
       
-      - name: Use Node.js ${{ matrix.node-version }}
-        uses: actions/setup-node@v5
-        with:
-          node-version: ${{ matrix.node-version }}
-          cache: "pnpm"
+      # - name: Use Node.js ${{ matrix.node-version }}
+      #   uses: actions/setup-node@v5
+      #   with:
+      #     node-version: ${{ matrix.node-version }}
+      #     cache: "pnpm"
 
       - name: Clean install dependencies
         run: pnpm install --frozen-lockfile
         # https://pnpm.io/cli/install#--frozen-lockfile
+
+      - name: Build dist
+        run: pnpm --filter @congruent-stack/congruent-api run build
