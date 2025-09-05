@@ -34,9 +34,9 @@ jobs:
       - name: Print .npmrc
         run: |
           ls -la
-          cat ~/.npmrc
+          cat ./.npmrc
 
       - name: Publish to npmjs registry
         run: |
           pnpm config set registry https://registry.npmjs.org/
-          cat ~/.npmrc
+          cat ./.npmrc
