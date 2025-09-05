@@ -3,7 +3,7 @@ on:
   - pull_request
 
 jobs:
-  install:
+  build-and-publish:
     runs-on: ubuntu-latest
 
     strategy:
@@ -31,12 +31,10 @@ jobs:
       - name: Build dist
         run: pnpm --filter @congruent-stack/congruent-api run build
 
-      - name: Print .npmrc
-        run: |
-          ls -la
-          cat ./.npmrc
-
       - name: Publish to npmjs registry
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
         run: |
+          npm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
           pnpm config set registry https://registry.npmjs.org/ --location=project
-          cat ./.npmrc
+          pnpm publish --access public
