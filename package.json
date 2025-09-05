@@ -1,0 +1,15 @@
+{
+  "name": "@congruent-stack/congruent-monorepo",
+  "version": "0.1.0",
+  "description": "Typescript schema-first tooling for agnostic REST APIs.",
+  "keywords": [],
+  "author": "congruent-stack",
+  "license": "MIT",
+  "packageManager": "pnpm@10.15.1",
+  "devDependencies": {
+    "vitest": "catalog:"
+  },
+  "scripts": {
+    "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version"
+  }
+}
