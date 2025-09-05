@@ -17,14 +17,17 @@ jobs:
       - name: Setup pnpm
         uses: pnpm/action-setup@v4
 
-      - name: Print nodejs version
+      - name: Print nodejs version (1)
         run: node --version
       
-      # - name: Use Node.js ${{ matrix.node-version }}
-      #   uses: actions/setup-node@v5
-      #   with:
-      #     node-version: ${{ matrix.node-version }}
-      #     cache: "pnpm"
+      - name: Use Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: "pnpm"
+
+      - name: Print nodejs version (2)
+        run: node --version
 
       - name: Clean install dependencies
         run: pnpm install --frozen-lockfile
