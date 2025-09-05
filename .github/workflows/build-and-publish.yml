@@ -32,9 +32,6 @@ jobs:
         run: pnpm --filter @congruent-stack/congruent-api run build
 
       - name: Publish to npmjs registry
-        env:
-          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # uses trusted publisher with OpenID Connect
         run: |
-          pnpm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
-          pnpm config set registry https://registry.npmjs.org/ --location=project
           pnpm --filter @congruent-stack/congruent-api publish --no-git-checks --access public
