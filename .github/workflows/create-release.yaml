@@ -16,18 +16,25 @@ jobs:
         with:
           fetch-depth: 0   # ensure we have tags/heads available
 
-      - name: Read version from package.json
-        id: get_version
+      - name: Read package info (name & version)
+        id: pkg
         run: |
+          NAME=$(jq -r '.name' package.json)
           VERSION=$(jq -r '.version' package.json)
+
+          if [ -z "$NAME" ] || [ "$NAME" = "null" ]; then
+            echo "package.json name is missing"; exit 1
+          fi
           if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
             echo "package.json version is missing"; exit 1
           fi
+
+          echo "name=$NAME" >> "$GITHUB_OUTPUT"
           echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Validate version
         run: |
-          VERSION="${{ steps.get_version.outputs.version }}"
+          VERSION="${{ steps.pkg.outputs.version }}"
           if [ -z "$VERSION" ]; then
             echo "package.json 'version' is empty"; exit 1
           fi
@@ -36,3 +43,32 @@ jobs:
             echo "package.json version '$VERSION' doesn't look like semver"; exit 1
           fi
           echo "Version: $VERSION"
+
+      - name: Check npm for existing version
+        id: npm_check
+        env:
+          NAME: ${{ steps.pkg.outputs.name }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+          # If your package is private, set NPM_TOKEN in repo secrets and uncomment:
+          # NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+          # also uncomment the line in the script below
+        run: |
+          # If you need auth (private packages), uncomment the next line:
+          # if [ -n "$NPM_TOKEN" ]; then npm config set //registry.npmjs.org/:_authToken "$NPM_TOKEN"; fi
+
+          if npm view "$NAME@$VERSION" version >/dev/null 2>&1; then
+            echo "NPM version already exists: $NAME@$VERSION"
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "NPM version does not exist yet."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Stop if version already published to npm
+        if: steps.npm_check.outputs.exists == 'true'
+        env:
+          NAME: ${{ steps.pkg.outputs.name }}
+          VERSION: ${{ steps.pkg.outputs.version }}
+        run: |
+          echo "Version $NAME@$VERSION is already on npm. Aborting release to avoid duplicate tag." >&2
+          exit 1
