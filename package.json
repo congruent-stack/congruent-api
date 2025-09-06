@@ -11,7 +11,7 @@
     "vitest": "catalog:"
   },
   "scripts": {
-    "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version --no-git-tag-version",
-    "root:version:bump": "pnpm exec pnpm version --no-git-tag-version"
+    "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version --no-git-tag-version --preid rc",
+    "root:version:bump": "pnpm exec pnpm version --no-git-tag-version --preid rc"
   }
 }
