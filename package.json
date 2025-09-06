@@ -11,6 +11,7 @@
     "vitest": "catalog:"
   },
   "scripts": {
-    "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version"
+    "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version",
+    "root:version:bump": "pnpm exec pnpm version"
   }
 }
