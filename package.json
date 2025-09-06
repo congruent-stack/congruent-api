@@ -1,6 +1,6 @@
 {
   "name": "@congruent-stack/monorepo",
-  "version": "0.1.9",
+  "version": "0.1.10",
   "description": "Typescript schema-first tooling for agnostic REST APIs.",
   "keywords": [],
   "author": "congruent-stack",
@@ -11,7 +11,7 @@
     "vitest": "catalog:"
   },
   "scripts": {
-    "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version",
-    "root:version:bump": "pnpm exec pnpm version"
+    "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version --no-git-tag-version",
+    "root:version:bump": "pnpm exec pnpm version --no-git-tag-version"
   }
 }
