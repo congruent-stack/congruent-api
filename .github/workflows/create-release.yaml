@@ -1,0 +1,33 @@
+name: Manual Release (from package.json)
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: write   # needed to push a tag and create a release
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # ensure we have tags/heads available
+
+      - name: Use Node to read version
+        id: get_version
+        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+
+      - name: Validate version
+        run: |
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if [ -z "$VERSION" ]; then
+            echo "package.json 'version' is empty"; exit 1
+          fi
+          # basic semver sanity check (allows prereleases/build metadata)
+          if ! echo "$VERSION" | grep -Eq '^[0-9]+(\.[0-9]+){1,2}([-.][0-9A-Za-z.+-]+)?$'; then
+            echo "package.json version '$VERSION' doesn't look like semver"; exit 1
+          fi
+          echo "Version: $VERSION"
