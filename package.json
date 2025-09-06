@@ -13,6 +13,7 @@
   "scripts": {
     "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version",
     "root:version:bump": "pnpm exec pnpm version",
-    "version:bump": "pnpm run root:version:bump && pnpm run pkgs:version:bump"
+    "version:bump": "pnpm run root:version:bump && pnpm run pkgs:version:bump",
+    "version:bump:all": "pnpm exec npm version --workspaces --include-workspace-root"
   }
 }
