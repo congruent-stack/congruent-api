@@ -13,6 +13,6 @@
   "scripts": {
     "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version $npm_config_bump_or_version",
     "root:version:bump": "pnpm exec pnpm version $npm_config_bump_or_version",
-    "version:bump": "pnpm run root:version:bump && pnpm run pkgs:version:bump"
+    "version:bump": "echo $npm_config_bump_or_version && pnpm run root:version:bump && pnpm run pkgs:version:bump"
   }
 }
