@@ -72,3 +72,9 @@ jobs:
         run: |
           echo "Version $NAME@$VERSION is already on npm. Aborting release to avoid duplicate tag." >&2
           exit 1
+
+      - name: Configure git (for tagging)
+        run: |
+          echo "GITHUB_ACTOR=${GITHUB_ACTOR}"
+          git config user.name "${GITHUB_ACTOR}"
+          git config user.email "${GITHUB_ACTOR}@users.noreply.github.com"
