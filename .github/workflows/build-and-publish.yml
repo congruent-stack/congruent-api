@@ -2,6 +2,8 @@ on:
   - push
   - pull_request
 
+permissions:
+  id-token: write   # Needed for OIDC
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
