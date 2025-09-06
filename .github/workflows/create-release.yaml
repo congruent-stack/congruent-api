@@ -16,9 +16,14 @@ jobs:
         with:
           fetch-depth: 0   # ensure we have tags/heads available
 
-      - name: Use Node to read version
+      - name: Read version from package.json
         id: get_version
-        run: echo "version=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          if [ -z "$VERSION" ] || [ "$VERSION" = "null" ]; then
+            echo "package.json version is missing"; exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
       - name: Validate version
         run: |
