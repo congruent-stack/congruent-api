@@ -60,7 +60,7 @@ jobs:
             echo "NPM version already exists: $NAME@$VERSION"
             echo "exists=true" >> "$GITHUB_OUTPUT"
           else
-            echo "NPM version does not exist yet."
+            echo "NPM version $NAME@$VERSION does not exist yet."
             echo "exists=false" >> "$GITHUB_OUTPUT"
           fi
 
