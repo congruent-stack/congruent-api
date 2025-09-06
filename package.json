@@ -11,6 +11,6 @@
     "vitest": "catalog:"
   },
   "scripts": {
-    "version:bump": "pnpm --filter \"./packages/**\" --include-workspace-root exec pnpm version"
+    "version:bump": "pnpm --filter @congruent-stack/monorepo --filter \"./packages/**\" --include-workspace-root exec pnpm version"
   }
 }
