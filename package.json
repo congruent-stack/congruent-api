@@ -17,6 +17,6 @@
     "root:version:bump": "pnpm version --no-git-tag-version --preid rc",
     "pkgs:version:sync": "node bin/sync-versions.js",
     "pkgs:version:bump": "pnpm --filter \"./packages/**\" version --no-git-tag-version --preid rc",
-    "root:pkgs:version:bump": "node bin/bump-version.js"
+    "update:versions": "node bin/bump-version.js"
   }
 }
