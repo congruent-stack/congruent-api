@@ -29,10 +29,14 @@
     "@congruent-stack/congruent-api": "workspace:*"
   },
   "devDependencies": {
+    "@types/express": "catalog:",
     "pkgroll": "catalog:",
     "typescript": "catalog:"
   },
   "scripts": {
     "build": "pkgroll --clean-dist"
+  },
+  "dependencies": {
+    "express": "catalog:"
   }
 }
