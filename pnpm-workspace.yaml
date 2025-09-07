@@ -9,6 +9,7 @@ catalog:
   body-parser: ^2.2.0
   cors: ^2.8.5
   express: 5.1.0
+  glob: ^11.0.0
   pkgroll: 2.14.5
   tsx: ^4.20.3
   typescript: ^5.9.2

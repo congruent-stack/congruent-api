@@ -8,10 +8,13 @@
   "packageManager": "pnpm@10.15.1",
   "files": [],
   "devDependencies": {
+    "glob": "catalog:",
     "vitest": "catalog:"
   },
   "scripts": {
+    "root:version:bump": "pnpm exec pnpm version --no-git-tag-version --preid rc",
+    "pkgs:version:sync": "node bin/sync-versions.js",
     "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version --no-git-tag-version --preid rc",
-    "root:version:bump": "pnpm exec pnpm version --no-git-tag-version --preid rc"
+    "root:pkgs:version:bump": "pnpm exec pnpm version --no-git-tag-version --preid rc && pnpm run pkgs:version:sync"
   }
 }
