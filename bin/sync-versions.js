@@ -75,10 +75,9 @@ async function syncVersions() {
       }
     }
 
-    console.log(`\nSynchronization complete!`);
-    console.log(`  Updated: ${updatedCount} package(s)`);
+    console.log(`Synchronized: ${updatedCount} package(s)`);
     if (errorCount > 0) {
-      console.log(`  Errors: ${errorCount} package(s)`);
+      console.log(`Version Sync Errors: ${errorCount} package(s)`);
     }
 
     if (errorCount > 0) {
