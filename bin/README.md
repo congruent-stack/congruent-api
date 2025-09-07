@@ -2,6 +2,10 @@
 
 This directory contains utility scripts for the monorepo.
 
+## bump-version.js
+
+Accepts a <version|bump> argument, uses sync-versions.js under the hood.
+
 ## sync-versions.js
 
 Synchronizes the `version` field in all package.json files under `./packages/**` with the version in the root package.json.

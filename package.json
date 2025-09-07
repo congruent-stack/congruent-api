@@ -1,5 +1,6 @@
 {
   "name": "@congruent-stack/monorepo",
+  "type": "module",
   "version": "0.3.0-rc.0",
   "description": "Typescript schema-first tooling for agnostic REST APIs.",
   "keywords": [],
@@ -9,12 +10,13 @@
   "files": [],
   "devDependencies": {
     "glob": "catalog:",
-    "vitest": "catalog:"
+    "vitest": "catalog:",
+    "execa": "catalog:"
   },
   "scripts": {
-    "root:version:bump": "pnpm exec pnpm version --no-git-tag-version --preid rc",
+    "root:version:bump": "pnpm version --no-git-tag-version --preid rc",
     "pkgs:version:sync": "node bin/sync-versions.js",
-    "pkgs:version:bump": "pnpm --filter \"./packages/**\" exec pnpm version --no-git-tag-version --preid rc",
-    "root:pkgs:version:bump": "pnpm exec pnpm version --no-git-tag-version --preid rc && pnpm run pkgs:version:sync"
+    "pkgs:version:bump": "pnpm --filter \"./packages/**\" version --no-git-tag-version --preid rc",
+    "root:pkgs:version:bump": "node bin/bump-version.js"
   }
 }

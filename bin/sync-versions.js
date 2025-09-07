@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-
-const fs = require('fs');
-const path = require('path');
-const glob = require('glob');
+import fs from 'fs';
+import path from 'path';
+import { glob } from 'glob';
 
 /**
  * Synchronizes package.json version fields from all packages under ./packages/**
@@ -90,15 +89,6 @@ async function syncVersions() {
     console.error('Error synchronizing versions:', error.message);
     process.exit(1);
   }
-}
-
-// Check if glob is available, if not provide fallback
-try {
-  require('glob');
-} catch (error) {
-  console.error('Error: glob package is required but not found.');
-  console.error('Please install it with: pnpm add -D glob');
-  process.exit(1);
 }
 
 syncVersions();
