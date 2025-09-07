@@ -27,6 +27,9 @@ catalogs:
     vitest:
       specifier: 3.2.4
       version: 3.2.4
+    zod:
+      specifier: ^4.0.10
+      version: 4.1.5
 
 importers:
 
@@ -43,6 +46,10 @@ importers:
         version: 3.2.4(@types/node@24.3.1)
 
   packages/congruent-api:
+    dependencies:
+      zod:
+        specifier: 'catalog:'
+        version: 4.1.5
     devDependencies:
       pkgroll:
         specifier: 'catalog:'
@@ -56,13 +63,13 @@ importers:
       '@congruent-stack/congruent-api':
         specifier: workspace:*
         version: link:../congruent-api
-      express:
-        specifier: 'catalog:'
-        version: 5.1.0
     devDependencies:
       '@types/express':
         specifier: 'catalog:'
         version: 5.0.3
+      express:
+        specifier: 'catalog:'
+        version: 5.1.0
       pkgroll:
         specifier: 'catalog:'
         version: 2.14.5(typescript@5.9.2)
@@ -1277,6 +1284,9 @@ packages:
     resolution: {integrity: sha512-CzhO+pFNo8ajLM2d2IW/R93ipy99LWjtwblvC1RsoSUMZgyLbYFr221TnSNT7GjGdYui6P459mw9JH/g/zW2ug==}
     engines: {node: '>=18'}
 
+  zod@4.1.5:
+    resolution: {integrity: sha512-rcUUZqlLJgBC33IT3PNMgsCq6TzLQEG/Ei/KTCU0PedSWRMAXoOUN+4t/0H+Q8bdnLPdqUYnvboJT0bn/229qg==}
+
 snapshots:
 
   '@esbuild/aix-ppc64@0.25.9':
@@ -2394,3 +2404,5 @@ snapshots:
   wrappy@1.0.2: {}
 
   yoctocolors@2.1.2: {}
+
+  zod@4.1.5: {}
