@@ -38,6 +38,7 @@ jobs:
       - name: Build dist
         run: |
           pnpm --filter @congruent-stack/congruent-api run build
+          pnpm --filter @congruent-stack/congruent-api-fetch run build
 
       - name: Pnpm config for publishing
         env:
@@ -64,3 +65,4 @@ jobs:
       - name: Publish packages to npmjs registry
         run: |
           pnpm --filter @congruent-stack/congruent-api publish --no-git-checks --access public ${{ steps.prerelease_check.outputs.tag_arg }}
+          pnpm --filter @congruent-stack/congruent-api-fetch publish --no-git-checks --access public ${{ steps.prerelease_check.outputs.tag_arg }}
