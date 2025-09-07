@@ -1,3 +1,3 @@
-export function getHelloWorldMessage(name: string, breakingChange: string): string {
-  return `congruent-api: Hello, ${name}! ${breakingChange}`;
+export function getHelloWorldMessage(name: string): string {
+  return `congruent-api: Hello, ${name}!`;
 }

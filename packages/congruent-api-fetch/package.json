@@ -1,5 +1,5 @@
 {
-  "name": "@congruent-stack/congruent-api",
+  "name": "@congruent-stack/congruent-api-fetch",
   "type": "module",
   "version": "0.3.0-rc.0",
   "description": "Typescript schema-first tooling for agnostic REST APIs.",
@@ -24,6 +24,9 @@
         "default": "./dist/index.mjs"
       }
     }
+  },
+  "peerDependencies": {
+    "@congruent-stack/congruent-api": "workspace:*"
   },
   "devDependencies": {
     "pkgroll": "catalog:",
