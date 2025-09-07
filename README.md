@@ -7,7 +7,9 @@ Typescript schema-first tooling for agnostic REST APIs.
 ### How to update version to release candidate
 - pnpm update:versions [prepatch/preminor/premajor]
 
-#### Version bump scripts (obsolete)
+## Obsolete (kept for reference)
+
+#### Version bump scripts
 - pnpm pkgs:version:bump -- [patch/minor/major/x.y.z]
   - don't forget to run the "root:version:bump" script too
 - for release candidates you can
