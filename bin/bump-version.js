@@ -9,11 +9,15 @@ function printUsage() {
   console.error(`
 Argument: <version|bump>
 Examples:
-  patch       # 1.0.0 -> 1.0.1
-  minor       # 1.0.0 -> 1.1.0
-  major       # 1.0.0 -> 2.0.0
   1.2.3       # set exact version
-  prerelease  # 1.0.0 -> 1.0.1-rc.0
+  patch       # 1.0.0      -> 1.0.1
+  minor       # 1.0.0      -> 1.1.0
+  major       # 1.0.0      -> 2.0.0
+  prepatch    # 1.0.0      -> 1.0.1-rc.0
+  preminor    # 1.0.0      -> 1.1.0-rc.0
+  premajor    # 1.0.0      -> 2.0.0-rc.0
+  prerelease  # 1.0.0      -> 1.0.1-rc.0
+  prerelease  # 1.0.1-rc.0 -> 1.0.1-rc.1
 `);
 }
 
