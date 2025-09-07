@@ -36,7 +36,8 @@ jobs:
         # https://pnpm.io/cli/install#--frozen-lockfile
 
       - name: Build dist
-        run: pnpm --filter @congruent-stack/congruent-api run build
+        run: |
+          pnpm --filter @congruent-stack/congruent-api run build
 
       - name: Pnpm config for publishing
         env:
@@ -44,10 +45,22 @@ jobs:
         run: |
           pnpm config set //registry.npmjs.org/:_authToken=${NPM_TOKEN}
           pnpm config set registry https://registry.npmjs.org/ --location=project
-      
+
+      - name: Check if prerelease 
+        id: prerelease_check
+        run: |
+          VERSION=$(jq -r '.version' package.json)
+          if [[ "$VERSION" == *"-"* ]]; then
+            echo "This is a prerelease version: $VERSION"
+            echo "tag_arg=--tag next" >> "$GITHUB_OUTPUT"
+          else
+            echo "This is a stable release version: $VERSION"
+            echo "tag_arg=" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Publish monorepo package to npmjs registry
-        run: pnpm publish --no-git-checks --access public
+        run: pnpm publish --no-git-checks --access public ${{ steps.prerelease_check.outputs.tag_arg }}
 
       - name: Publish packages to npmjs registry
         run: |
-          pnpm --filter @congruent-stack/congruent-api publish --no-git-checks --access public
+          pnpm --filter @congruent-stack/congruent-api publish --no-git-checks --access public ${{ steps.prerelease_check.outputs.tag_arg }}
