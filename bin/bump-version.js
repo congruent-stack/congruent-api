@@ -4,7 +4,30 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 
 const args = process.argv.slice(2);
-// ...same validation as before...
+
+function printUsage() {
+  console.error(`
+Argument: <version|bump>
+Examples:
+  patch       # 1.0.0 -> 1.0.1
+  minor       # 1.0.0 -> 1.1.0
+  major       # 1.0.0 -> 2.0.0
+  1.2.3       # set exact version
+  prerelease  # 1.0.0 -> 1.0.1-rc.0
+`);
+}
+
+if (args.length === 0) {
+  console.error("❌ Missing version value/bump argument.");
+  printUsage();
+  process.exit(1);
+}
+
+if (args.length > 1) {
+  console.error("❌ Too many arguments. Provide exactly one.");
+  printUsage();
+  process.exit(1);
+}
 
 console.log(`🔖 Updating versions with argument: ${args[0]}`);
 
