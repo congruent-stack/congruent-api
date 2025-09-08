@@ -26,24 +26,32 @@ export function createExpressRegistry<
 ) {
   const registry = createRegistry<TDef, TDIContainer>(diContainer, apiContract, {
     handlerRegisteredCallback: (entry) => {
-      console.log('Registering Express route:', entry.methodEndpoint.genericPath);
       const { genericPath } = entry.methodEndpoint;
       const method = entry.methodEndpoint.method.toLowerCase() as LowerCasedHttpMethod;
       app[method](genericPath, async (req, res) => {
         // @ts-ignore
         req.pathParams = req.params;
         const result = await entry.trigger(req as any);
-        res.status(result.code).json(result.body);
+        const resultHeaders = new Map(
+          Object.entries(result.headers || {})
+        ) as Map<string, string | number | readonly string[]>;
+        res.status(result.code)
+          .setHeaders(resultHeaders)
+          .json(result.body);
       });
     },
     middlewareHandlerRegisteredCallback: (entry) => {
-      console.log('Registering Express middleware:', entry.genericPath);
       app.use(entry.genericPath, async (req, res, next) => {
         // @ts-ignore
         req.pathParams = req.params;
-        const haltResponse = await entry.trigger(req as any, next);
-        if (haltResponse && isHttpResponseObject(haltResponse)) {
-          res.status(haltResponse.code).json(haltResponse.body);
+        const haltResult = await entry.trigger(req as any, next);
+        if (haltResult && isHttpResponseObject(haltResult)) {
+          const haltResultHeaders = new Map(
+            Object.entries(haltResult.headers || {})
+          ) as Map<string, string | number | readonly string[]>;
+          res.status(haltResult.code)
+            .setHeaders(haltResultHeaders)
+            .json(haltResult.body);
         }
       });
     }

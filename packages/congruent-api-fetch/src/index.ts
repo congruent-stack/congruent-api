@@ -45,11 +45,13 @@ export function createFetchClient<
       : requestInit;
     const response = await fetch(fullUrlAddress, finalRequestInit);
     const responseCode = response.status as HttpStatusCode;
+    const responseHeaders = Object.fromEntries(response.headers.entries());
     const responseBody = responseCode === HttpStatusCode.NoContent_204 // TODO: Use a more robust check for empty body
       ? undefined 
       : await response.json();
     return {
       code: responseCode,
+      headers: responseHeaders,
       body: responseBody,
     };
   });

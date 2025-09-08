@@ -1,6 +1,9 @@
 # congruent-api
 Typescript schema-first tooling for agnostic REST APIs.
 
+### Make sure that
+- tsconfig.json#compilerOptions.strict is set to true
+
 ### How to update version
 - pnpm update:versions [patch/minor/major/x.y.z]
 

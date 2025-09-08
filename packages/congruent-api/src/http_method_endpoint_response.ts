@@ -8,11 +8,14 @@ export function response<TStatus extends HttpStatusCode, TDef extends IHttpMetho
 }
 
 export interface IHttpMethodEndpointResponseDefinition<_TStatus extends HttpStatusCode> {
-  headers?: Record<string, string>;
+  headers?: z.ZodType;
   body?: z.ZodType;
 }
 
-export class HttpMethodEndpointResponse<TStatus extends HttpStatusCode, TDef extends IHttpMethodEndpointResponseDefinition<TStatus>> {
+export class HttpMethodEndpointResponse<
+  TStatus extends HttpStatusCode, 
+  TDef extends IHttpMethodEndpointResponseDefinition<TStatus>
+> {
   
   private _definition: TDef;
   get definition(): TDef {

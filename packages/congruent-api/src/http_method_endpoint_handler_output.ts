@@ -11,24 +11,43 @@ export type HttpMethodEndpointHandlerOutput<TEndpointDefinition extends IHttpMet
 }[keyof TEndpointDefinition['responses'] & HttpStatusCode];
 
 type CreateHandlerOutput<THttpStatusCode extends HttpStatusCode, TRespDef> = 
-  TRespDef extends { body: z.ZodType }
+  TRespDef extends { headers: z.ZodType; body: z.ZodType; }
     ? {
         code: THttpStatusCode;
+        headers: z.input<TRespDef['headers']>;
         body: z.input<TRespDef['body']>;
       }
-    : {
-        code: THttpStatusCode;
-        // Explicitly forbid body property when response has no body
-        body?: never; // it still allows undefined, but that is fine
-      };
+    : TRespDef extends { headers: z.ZodType; }
+      ? {
+          code: THttpStatusCode;
+          headers: z.input<TRespDef['headers']>;
+          // Explicitly forbid body property when response has no body
+          body?: never; // it still allows assigning undefined to it, but that is fine
+        }
+      : TRespDef extends { body: z.ZodType; }
+        ? {
+            code: THttpStatusCode;
+            // Explicitly forbid headers property when response has no headers
+            headers?: never; // it still allows assigning undefined to it, but that is fine
+            body: z.input<TRespDef['body']>;
+          }
+        : {
+            code: THttpStatusCode;
+            // Explicitly forbid headers property when response has no headers
+            headers?: never; // it still allows assigning undefined to it, but that is fine
+            // Explicitly forbid body property when response has no body
+            body?: never; // it still allows assigning undefined to it, but that is fine
+          };
 
 export type ClientHttpMethodEndpointHandlerOutput = {
   code: HttpStatusCode;
+  headers?: any;
   body: any;
 }
 
 export type HttpResponseObject = {
   code: HttpStatusCode;
+  headers?: any;
   body?: any;
 }
 
