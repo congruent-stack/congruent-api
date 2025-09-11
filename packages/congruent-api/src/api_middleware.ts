@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { IApiContractDefinition, ValidateApiContractDefinition } from "./api_contract.js";
 import { ApiHandlersRegistry } from "./api_handlers_registry.js";
-import { DIContainer } from "./di_container.js";
+import { DIContainer, DIScope } from "./di_container.js";
 import { HttpMethodEndpoint } from "./http_method_endpoint.js";
 import { ExtractConcatenatedParamNamesFromPath, TypedPathParams } from "./typed_path_params.js";
 import { HttpMethod } from "./http_method_type.js";
@@ -90,6 +90,9 @@ export class MiddlewareHandlersRegistryEntryInternal<
 > {
   
   private readonly _dicontainer: TDIContainer;
+  public get dicontainer(): TDIContainer {
+    return this._dicontainer;
+  }
   
   private readonly _middlewareGenericPath: string;
   public get genericPath(): string {
@@ -137,6 +140,7 @@ export class MiddlewareHandlersRegistryEntryInternal<
   private _injection: any = (_dicontainer: TDIContainer) => ({});
 
   async trigger(
+    diScope: DIScope<any>,
     data: { 
       headers: Record<string, string>,
       pathParams: Record<string, string>,
@@ -173,17 +177,20 @@ export class MiddlewareHandlersRegistryEntryInternal<
         : segment
     ).join('/')}`;
 
-    return await this._handler({ 
-      method: method as HttpMethod, // TODO: might be empty, as middleware can be registered with path only, without method, possible fix: take it from express.request.method
-      path,
-      genericPath: this.genericPath,
-      pathSegments: pathSegments,
-      headers,
-      pathParams: data.pathParams as any, 
-      query,
-      body,
-      injected: this._injection(this._dicontainer.createScope()),
-    }, next);
+    return await this._handler(
+      { 
+        method: method as HttpMethod, // TODO: might be empty, as middleware can be registered with path only, without method, possible fix: take it from express.request.method
+        path,
+        genericPath: this.genericPath,
+        pathSegments: pathSegments,
+        headers,
+        pathParams: data.pathParams as any, 
+        query,
+        body,
+        injected: this._injection(diScope),
+      }, 
+      next
+    );
   }
 }
 
@@ -248,8 +255,14 @@ export class MiddlewareHandlersRegistry<
     this._onHandlerRegisteredCallback = callback;
   }
 
+  private readonly _list: MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>[] = [];
+  public get list(): Readonly<MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>[]> {
+    return this._list;
+  }
+
   register<TInjected>(entry: MiddlewareHandlersRegistryEntryInternal<TDIContainer, TInjected>) {
     if (this._onHandlerRegisteredCallback) {
+      this._list.push(entry as MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>);
       this._onHandlerRegisteredCallback(entry);
     }
   }

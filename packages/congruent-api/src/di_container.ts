@@ -35,7 +35,7 @@ export type DIScope<R extends DIServiceRegistry> = {
  * For example, if R is `{ LoggerService: LoggerService }`, this type will be:
  * { getLoggerService: () => LoggerService }
  */
-type DITypedContainer<R extends DIServiceRegistry> = DIContainer<R> & {
+export type DITypedContainer<R extends DIServiceRegistry> = DIContainer<R> & {
   [K in keyof R as `get${string & K}`]: () => R[K]
 };
 
@@ -46,6 +46,7 @@ export class DIContainer<R extends DIServiceRegistry = {}> {
   private registry = new Map<string, DIRegistration>();
   private singletons = new Map<string, any>();
   private proxy: any;
+  private resolutionStack: { serviceName: string; lifetime: DILifetime }[] = [];
 
   /**
    * The constructor returns a Proxy. This is the runtime magic that intercepts
@@ -64,7 +65,9 @@ export class DIContainer<R extends DIServiceRegistry = {}> {
           // Find the registered service by service name.
           if (target.registry.has(serviceName)) {
             // If found, return a function that resolves the service.
-            return () => target.resolveByName(serviceName);
+            return () => {
+              return target.resolveByName(serviceName)
+            };
           } else {
             throw new Error(`Service not registered: ${serviceName}`);
           }
@@ -93,23 +96,85 @@ export class DIContainer<R extends DIServiceRegistry = {}> {
    * Resolves a service by service name.
    */
   private resolveByName<T>(serviceName: string): T {
-    const registration = this.registry.get(serviceName);
+    const registration = this
+      .registry
+      .get(serviceName);
 
     if (!registration) {
       throw new Error(`Service not registered: ${serviceName}`);
     }
 
-    if (registration.lifetime === 'singleton') {
-      if (!this.singletons.has(serviceName)) {
-        // The factory is called with the proxy container,
-        // allowing dependencies to be resolved using the `get...` syntax.
-        const instance = registration.factory(this.proxy);
-        this.singletons.set(serviceName, instance);
-      }
-      return this.singletons.get(serviceName);
-    }
+    // Check for circular dependencies before starting resolution
+    this.validateCircularDependency(serviceName);
+    
+    // Validate lifetime dependencies
+    this.validateLifetimeDependency(serviceName, registration.lifetime);
 
-    return registration.factory(this.proxy);
+    // Track this service in the resolution stack
+    this.resolutionStack.push({ serviceName, lifetime: registration.lifetime });
+
+    try {
+      if (registration.lifetime === 'singleton') {
+        if (!this.singletons.has(serviceName)) {
+          // The factory is called with the proxy container,
+          // allowing dependencies to be resolved using the `get...` syntax.
+          const instance = registration.factory(this.proxy);
+          this.singletons.set(serviceName, instance);
+        }
+        return this.singletons.get(serviceName);
+      }
+
+      return registration.factory(this.proxy);
+    } finally {
+      // Remove from resolution stack
+      this.resolutionStack.pop();
+    }
+  }
+
+
+
+  /**
+   * Validates that there are no circular dependencies.
+   * Throws an error if a service tries to depend on itself directly or indirectly.
+   */
+  private validateCircularDependency(serviceName: string): void {
+    // Check if this service is already in the resolution stack
+    const existingIndex = this.resolutionStack.findIndex(entry => entry.serviceName === serviceName);
+    if (existingIndex !== -1) {
+      // Build the circular dependency path
+      const circularPath = [
+        ...this.resolutionStack.slice(existingIndex).map(entry => entry.serviceName),
+        serviceName
+      ];
+      
+      
+      throw new Error(
+        `Circular dependency detected: ${circularPath.join(' → ')}. ` +
+        `Services cannot depend on themselves directly or indirectly.`
+      );
+    }
+  }
+
+  /**
+   * Validates that lifetime dependencies are correct.
+   * Throws an error if a longer-lived service tries to depend on a shorter-lived service.
+   */
+  private validateLifetimeDependency(serviceName: string, serviceLifetime: DILifetime): void {
+    // Find any parent service in the resolution stack that has a longer lifetime
+    for (const parent of this.resolutionStack) {
+      // Singleton cannot depend on scoped services (captive dependency)
+      if (parent.lifetime === 'singleton' && serviceLifetime === 'scoped') {
+        throw new Error(
+          `Invalid service dependency: Singleton service '${parent.serviceName}' cannot depend on scoped service '${serviceName}'. ` +
+          `Singleton services must only depend on other singleton or transient services to avoid captive dependencies.`
+        );
+      }
+      
+      // Note: Singleton depending on transient is allowed but can be problematic
+      // We document this in tests but don't block it for flexibility
+      
+      // Scoped depending on transient is generally fine
+    }
   }
 
   /**
@@ -117,8 +182,9 @@ export class DIContainer<R extends DIServiceRegistry = {}> {
    */
   public createScope(): DIScope<R> {
     const scope = {} as any;
+    const cachedInstances = {} as any;
     
-    return new Proxy(scope, {
+    const scopeProxy = new Proxy(scope, {
       get: (target, prop) => {
         // Intercept any method call that starts with "get".
         if (typeof prop === 'string' && prop.startsWith('get')) {
@@ -133,15 +199,47 @@ export class DIContainer<R extends DIServiceRegistry = {}> {
             return () => {
               // For transient services, always create new instances
               if (registration?.lifetime === 'transient') {
+                // Check for circular dependencies before starting resolution
+                this.validateCircularDependency(serviceName);
+                
+                // Validate lifetime dependencies
+                this.validateLifetimeDependency(serviceName, registration!.lifetime);
+
+                // Track this service in the resolution stack
+                this.resolutionStack.push({ serviceName, lifetime: registration!.lifetime });
+
+                try {
+                  return registration!.factory(scopeProxy);
+                } finally {
+                  // Remove from resolution stack
+                  this.resolutionStack.pop();
+                }
+              }
+              
+              // For singleton services, use the main container's singleton cache
+              if (registration?.lifetime === 'singleton') {
                 return this.resolveByName(serviceName);
               }
               
-              // For singleton/scoped services, cache in the scope
-              const cacheKey = `_cached_${serviceName}`;
-              if (!target[cacheKey]) {
-                target[cacheKey] = this.resolveByName(serviceName);
+              // For scoped services, cache in the scope
+              if (!cachedInstances[serviceName]) {
+                // Check for circular dependencies before starting resolution
+                this.validateCircularDependency(serviceName);
+                
+                // Validate lifetime dependencies
+                this.validateLifetimeDependency(serviceName, registration!.lifetime);
+
+                // Track this service in the resolution stack
+                this.resolutionStack.push({ serviceName, lifetime: registration!.lifetime });
+
+                try {
+                  cachedInstances[serviceName] = registration!.factory(scopeProxy);
+                } finally {
+                  // Remove from resolution stack
+                  this.resolutionStack.pop();
+                }
               }
-              return target[cacheKey];
+              return cachedInstances[serviceName];
             };
           } else {
             throw new Error(`Service not registered: ${serviceName}`);
@@ -152,6 +250,8 @@ export class DIContainer<R extends DIServiceRegistry = {}> {
         return Reflect.get(target, prop);
       }
     }) as DIScope<R>;
+    
+    return scopeProxy;
   }
 
   createTestClone(): this {

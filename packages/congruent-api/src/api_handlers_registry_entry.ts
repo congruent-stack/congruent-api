@@ -1,4 +1,4 @@
-import { DIContainer } from "./di_container.js";
+import { DIContainer, DIScope } from "./di_container.js";
 import { HttpMethodEndpoint, IHttpMethodEndpointDefinition, ValidateHttpMethodEndpointDefinition } from "./http_method_endpoint.js";
 import { HttpMethodEndpointHandler } from "./http_method_endpoint_handler.js";
 import { HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
@@ -28,7 +28,7 @@ export class MethodEndpointHandlerRegistryEntry<
   }
 
   private _dicontainer: TDIContainer;
-  get dicontainer(): TDIContainer {
+  public get dicontainer(): TDIContainer {
     return this._dicontainer;
   }
 
@@ -70,6 +70,7 @@ export class MethodEndpointHandlerRegistryEntry<
   }
 
   async trigger(
+    diScope: DIScope<any>,
     data: { 
       headers: Record<string, string>,
       pathParams: Record<string, string>,
@@ -116,7 +117,7 @@ export class MethodEndpointHandlerRegistryEntry<
       pathParams: data.pathParams as any, 
       query,
       body,
-      injected: this._injection(this._dicontainer.createScope()),
+      injected: this._injection(diScope),
     });
   }
 }
