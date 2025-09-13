@@ -1,5 +1,16 @@
-// This type ensures only string literals are accepted, not variables
-type StringLiteral<T extends string> = string extends T ? never : T;
+// // This ensures only string literals are accepted, not variables
+export type StringLiteral<T extends string> = string extends T ? never : T;
+
+// Accept only *capitalized* string *literals* (e.g., "Foo", "BarBaz").
+// Rejects non-literals (plain `string`) and strings not starting with an uppercase letter.
+export type CapitalizedStringLiteral<T extends string> =
+  string extends T
+    ? never      // not a concrete literal
+    : T extends `${Uppercase<infer F>}${infer _}`
+      ? F extends Lowercase<F> 
+        ? never  // F is not uppercase
+        : T      // F must be a letter and uppercase
+      : `❌ ERROR: Must start with uppercase letter`;
 
 export type DILifetime = 'singleton' | 'transient' | 'scoped';
 
@@ -11,7 +22,7 @@ export type DIRegistryEntry<T> = {
 export type DIRegistry = Record<string, DIRegistryEntry<any>>;
 
 export type DIScope<R extends DIRegistry> = {
-  [K in keyof R as `get${Capitalize<string & K>}`]: () => R[K] extends DIRegistryEntry<infer T> ? T : never
+  [K in keyof R as `get${string & K}`]: () => R[K] extends DIRegistryEntry<infer T> ? T : never
 };
 
 export class DIContainerBase<R extends DIRegistry> {
@@ -23,6 +34,7 @@ export class DIContainerBase<R extends DIRegistry> {
       _map: this._map,
       _singletonInstances: this._singletonInstances,
       _scopedInstances: new Map<string, any>(),
+      _isBuildingSingleton: false,
     }, {
       get: (target, prop: string) => {
         if (prop.startsWith('get')) {
@@ -31,9 +43,17 @@ export class DIContainerBase<R extends DIRegistry> {
             const entry = target._map.get(serviceName)!;
             switch (entry.lifetime) {
               case 'transient':
-                return () => entry.factory(proxy);
+                return () => {
+                  if (target._isBuildingSingleton) {
+                    throw new Error(`Cannot resolve transient service '${serviceName}' while building a singleton`);
+                  }
+                  return entry.factory(proxy)
+                };
               case 'scoped':
                 return () => {
+                  if (target._isBuildingSingleton) {
+                    throw new Error(`Cannot resolve scoped service '${serviceName}' while building a singleton`);
+                  }
                   if (!target._scopedInstances.has(serviceName)) {
                     const instance = entry.factory(proxy);
                     target._scopedInstances.set(serviceName, instance);
@@ -43,8 +63,13 @@ export class DIContainerBase<R extends DIRegistry> {
               case 'singleton':
                 return () => {
                   if (!target._singletonInstances.has(serviceName)) {
-                    const instance = entry.factory(proxy);
-                    target._singletonInstances.set(serviceName, instance);
+                    target._isBuildingSingleton = true;
+                    try {
+                      const instance = entry.factory(proxy);
+                      target._singletonInstances.set(serviceName, instance);
+                    } finally {
+                      target._isBuildingSingleton = false;
+                    }
                   }
                   return target._singletonInstances.get(serviceName);
                 };
@@ -64,12 +89,12 @@ export class DIContainerBase<R extends DIRegistry> {
 
 export class DIContainer<R extends DIRegistry = {}> extends DIContainerBase<R> {
   public register<K extends string, T>(
-    serviceNameLiteral: StringLiteral<K>,
+    serviceNameCapitalizedLiteral: CapitalizedStringLiteral<K>,
     factory: (scope: DIScope<R>) => T,
     lifetime: DILifetime
   ): DIContainer<R & Record<K, DIRegistryEntry<T>>> {
     const entry: DIRegistryEntry<T> = { factory, lifetime };
-    this._map.set(serviceNameLiteral, entry);
+    this._map.set(serviceNameCapitalizedLiteral, entry);
     return this as unknown as DIContainer<R & Record<K, DIRegistryEntry<T>>>;
   }
 
