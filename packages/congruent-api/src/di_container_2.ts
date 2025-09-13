@@ -14,19 +14,9 @@ export type DIScope<R extends DIRegistry> = {
   [K in keyof R as `get${Capitalize<string & K>}`]: () => R[K] extends DIRegistryEntry<infer T> ? T : never
 };
 
-export class DIContainer<R extends DIRegistry = {}> {
-  private _map = new Map<string, DIRegistryEntry<any>>();
-  private _singletonInstances = new Map<string, any>();
-
-  public register<K extends string, T>(
-    serviceNameLiteral: StringLiteral<K>,
-    factory: (scope: DIScope<R>) => T,
-    lifetime: DILifetime
-  ): DIContainer<R & Record<K, DIRegistryEntry<T>>> {
-    const entry: DIRegistryEntry<T> = { factory, lifetime };
-    this._map.set(serviceNameLiteral, entry);
-    return this as unknown as DIContainer<R & Record<K, DIRegistryEntry<T>>>;
-  }
+export class DIContainerBase<R extends DIRegistry> {
+  protected _map = new Map<string, DIRegistryEntry<any>>();
+  protected _singletonInstances = new Map<string, any>();
 
   public createScope(): DIScope<R> {
     const proxy = new Proxy({
@@ -58,8 +48,9 @@ export class DIContainer<R extends DIRegistry = {}> {
                   }
                   return target._singletonInstances.get(serviceName);
                 };
+              default:
+                throw new Error(`Unsupported lifetime: ${entry.lifetime}`);
             }
-            // throw new Error(`Unsupported lifetime: ${entry.lifetime}`);
           } else {
             throw new Error(`Service not registered: ${serviceName}`);
           }
@@ -69,27 +60,44 @@ export class DIContainer<R extends DIRegistry = {}> {
     });
     return proxy as unknown as DIScope<R>;
   }
+}
+
+export class DIContainer<R extends DIRegistry = {}> extends DIContainerBase<R> {
+  public register<K extends string, T>(
+    serviceNameLiteral: StringLiteral<K>,
+    factory: (scope: DIScope<R>) => T,
+    lifetime: DILifetime
+  ): DIContainer<R & Record<K, DIRegistryEntry<T>>> {
+    const entry: DIRegistryEntry<T> = { factory, lifetime };
+    this._map.set(serviceNameLiteral, entry);
+    return this as unknown as DIContainer<R & Record<K, DIRegistryEntry<T>>>;
+  }
 
   createTestClone(): DIContainerTestClone<R, this> {
-    return null as any;
+    return new DIContainerTestClone(this);
   }
 }
 
-export class DIContainerTestClone<R extends DIRegistry, TDIContainer extends DIContainer<R>> {
-  private _original: TDIContainer;
-
+export class DIContainerTestClone<R extends DIRegistry, TDIContainer extends DIContainer<R>> extends DIContainerBase<R> {
   constructor(original: TDIContainer) {
-    this._original = original;
+    super();
+    original['_map'].forEach((value: DIRegistryEntry<any>, key: string) => {
+      this._map.set(key, {
+        factory: (scope: DIScope<R>) => { throw new Error('Service registration not overridden'); },
+        lifetime: value.lifetime,
+      });
+    });
   }
 
-  override(
-    serviceNameLiteral: keyof R & string,
-    factory: (scope: DIScope<R>) => R[typeof serviceNameLiteral] extends DIRegistryEntry<infer T> ? T : never
+  override<K extends keyof R & string>(
+    serviceNameLiteral: K,
+    factory: (scope: DIScope<R>) => R[K] extends DIRegistryEntry<infer T> ? T : never
   ): this {
+    const registration = this._map.get(serviceNameLiteral);
+    if (!registration) {
+      throw new Error(`Service not registered: ${serviceNameLiteral}`);
+    }
+    this._map.set(serviceNameLiteral, { factory, lifetime: registration.lifetime });
     return this;
   }
 }
-
-// export type DIContainerTestClone<R extends DIRegistry, TDIContainer extends DIContainer<R>> = {
-//   //[K in Exclude<keyof TDIContainer, 'register' | 'createTestClone'>]: TDIContainer[K];
-// };
