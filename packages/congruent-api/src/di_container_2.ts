@@ -55,7 +55,7 @@ export class DIContainerBase<R extends DIRegistry> {
             throw new Error(`Service not registered: ${serviceName}`);
           }
         }
-        throw new Error(`Service not found: ${String(prop)}`);
+        throw new Error(`Property access denied by Proxy: ${String(prop)}`);
       }
     });
     return proxy as unknown as DIScope<R>;
