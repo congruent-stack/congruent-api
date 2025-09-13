@@ -142,6 +142,10 @@ describe('DIContainer 2', () => {
     const barService = scope.getBarService();
     const fooService = scope.getFooService();
 
+    expect(fooService).toBeInstanceOf(FooService);
+    expect(barService).toBeInstanceOf(BarService);
+    expect(bazService).toBeInstanceOf(BazService);
+
     expect(fooService.foo()).toBe('foo');
     expect(barService.bar()).toBe('foo-bar');
     expect(bazService.baz()).toBe('foo-bar-baz');
@@ -172,6 +176,10 @@ describe('DIContainer 2', () => {
     const testBazService = testScope.getBazService();
     const testBarService = testScope.getBarService();
     const testFooService = testScope.getFooService();
+
+    expect(testFooService).not.toBeInstanceOf(FooService);
+    expect(testBarService).not.toBeInstanceOf(BarService);
+    expect(testBazService).not.toBeInstanceOf(BazService);
 
     expect(testFooService.foo()).toBe('TEST-foo');
     expect(testBarService.bar()).toBe('TEST-foo-TEST-bar');
