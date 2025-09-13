@@ -2,6 +2,37 @@ import { expect, test, describe } from 'vitest';
 import { DIContainer } from './di_container_2';
 
 describe('DIContainer 2', () => {
+  test('container test clone should allow overriding service registrations', () => {
+    class FooService {
+      public readonly uuid = crypto.randomUUID();
+    }
+
+    class BarService {
+      public readonly uuid = crypto.randomUUID();
+      constructor(public fooService: FooService) {}
+    }
+
+    class BazService {
+      public readonly uuid = crypto.randomUUID();
+      constructor(public barService: BarService) {}
+    }
+
+    const container = new DIContainer()
+      .register('FooService', () => new FooService(), 'transient')
+      .register('BarService', (scope) => new BarService(scope.getFooService()), 'transient')
+      .register('BazService', (scope) => new BazService(scope.getBarService()), 'transient');
+
+    const scope = container.createScope();
+
+    const testContainer = container.createTestClone()
+      .override('FooService', () => ({
+        uuid: crypto.randomUUID(),
+      } satisfies FooService))
+      .override("BazService", () => ({
+        uuid: crypto.randomUUID(),
+      } satisfies FooService));
+  });
+
   test('should register and resolve transient services', () => {
     class FooService {
       public readonly uuid = crypto.randomUUID();
@@ -41,16 +72,19 @@ describe('DIContainer 2', () => {
   test('should register and resolve scoped services', () => {
     class FooService {
       public readonly uuid = crypto.randomUUID();
+      public foo(): string { return 'foo'; }
     }
 
     class BarService {
       public readonly uuid = crypto.randomUUID();
       constructor(public fooService: FooService) {}
+      public bar(): string { return this.fooService.foo() + 'bar'; }
     }
 
     class BazService {
       public readonly uuid = crypto.randomUUID();
       constructor(public barService: BarService) {}
+      public baz(): string { return this.barService.bar() + 'baz'; }
     }
     
     const container = new DIContainer()

@@ -69,4 +69,27 @@ export class DIContainer<R extends DIRegistry = {}> {
     });
     return proxy as unknown as DIScope<R>;
   }
+
+  createTestClone(): DIContainerTestClone<R, this> {
+    return null as any;
+  }
 }
+
+export class DIContainerTestClone<R extends DIRegistry, TDIContainer extends DIContainer<R>> {
+  private _original: TDIContainer;
+
+  constructor(original: TDIContainer) {
+    this._original = original;
+  }
+
+  override(
+    serviceNameLiteral: keyof R & string,
+    factory: (scope: DIScope<R>) => R[typeof serviceNameLiteral] extends DIRegistryEntry<infer T> ? T : never
+  ): this {
+    return this;
+  }
+}
+
+// export type DIContainerTestClone<R extends DIRegistry, TDIContainer extends DIContainer<R>> = {
+//   //[K in Exclude<keyof TDIContainer, 'register' | 'createTestClone'>]: TDIContainer[K];
+// };
