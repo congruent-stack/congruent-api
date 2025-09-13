@@ -83,7 +83,7 @@ export class DIContainerTestClone<R extends DIRegistry, TDIContainer extends DIC
     super();
     original['_map'].forEach((value: DIRegistryEntry<any>, key: string) => {
       this._map.set(key, {
-        factory: (scope: DIScope<R>) => { throw new Error('Service registration not overridden'); },
+        factory: (_scope: DIScope<R>) => { throw new Error(`Service registration not overridden: ${key}`); },
         lifetime: value.lifetime,
       });
     });
