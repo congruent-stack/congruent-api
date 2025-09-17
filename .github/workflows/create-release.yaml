@@ -11,12 +11,12 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # - name: Check is default branch
-      #   if: github.ref_name != github.event.repository.default_branch 
-      #   # 'refs/heads/main' # alternative value to check against, wildcards might work too
-      #   run: |
-      #     echo "This workflow can run only on the default branch (main)."
-      #     exit 1
+      - name: Check is default branch
+        if: github.ref_name != github.event.repository.default_branch 
+        # 'refs/heads/main' # alternative value to check against, wildcards might work too
+        run: |
+          echo "This workflow can run only on the default branch (main)."
+          exit 1
 
       - name: Checkout
         uses: actions/checkout@v5
