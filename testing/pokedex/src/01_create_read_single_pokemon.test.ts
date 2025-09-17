@@ -79,7 +79,7 @@ describe('Create and Read a single Pokemon', () => {
 
     constructor() {
       this.uuid = crypto.randomUUID();
-      console.log('TenantStore created', this.uuid);
+      // console.log('TenantStore created', this.uuid);
     }
     
     private _tenant: Tenant | null = null;
@@ -100,7 +100,7 @@ describe('Create and Read a single Pokemon', () => {
     constructor(tenantStore: TenantStore) {
       this.uuid = crypto.randomUUID();
       this.tenantStore = tenantStore;
-      console.log('SomeOtherService created', this.uuid, 'with TenantStore', tenantStore.uuid);
+      // console.log('SomeOtherService created', this.uuid, 'with TenantStore', tenantStore.uuid);
     }
   }
 
@@ -112,10 +112,6 @@ describe('Create and Read a single Pokemon', () => {
     .register('SomeOtherService', (c) => {
       return new SomeOtherService(c.getTenantStore());
     }, 'scoped');
-
-  // TODO
-  // const scope = dicontainer.createScope();
-  // scope.
 
   const registry = createRegistry(dicontainer, contract, {
     handlerRegisteredCallback: (_entry) => {
@@ -179,21 +175,21 @@ describe('Create and Read a single Pokemon', () => {
       };
     });
 
-  // route(registry, 'GET /pokemons/:id')
-  //   .inject((c) => ({
-  //     tenantProvider: c.getTenantProvider(),
-  //   }))
-  //   .register(async (req) => {
-  //     const pokemonId = parseInt(req.pathParams.id, 10);
-  //     if (isNaN(pokemonId) || pokemonId < 1) {
-  //       return { code: HttpStatusCode.NotFound_404, body: { userMessage: `Invalid Pokemon ID ${req.pathParams.id}` } };
-  //     }
-  //     const pokemon = pokemons.find(p => p.id === pokemonId);
-  //     if (!pokemon) {
-  //       return { code: HttpStatusCode.NotFound_404, body: { userMessage: `Pokemon with ID ${req.pathParams.id} not found` } };
-  //     }
-  //     return { code: HttpStatusCode.OK_200, body: pokemon };
-  //   });
+  route(registry, 'GET /pokemons/:id')
+    .inject((c) => ({
+      tenantProvider: c.getTenantProvider(),
+    }))
+    .register(async (req) => {
+      const pokemonId = parseInt(req.pathParams.id, 10);
+      if (isNaN(pokemonId) || pokemonId < 1) {
+        return { code: HttpStatusCode.NotFound_404, body: { userMessage: `Invalid Pokemon ID ${req.pathParams.id}` } };
+      }
+      const pokemon = pokemons.find(p => p.id === pokemonId);
+      if (!pokemon) {
+        return { code: HttpStatusCode.NotFound_404, body: { userMessage: `Pokemon with ID ${req.pathParams.id} not found` } };
+      }
+      return { code: HttpStatusCode.OK_200, body: pokemon };
+    });
 
   type Tenant = { id: number; name: string; };
 
@@ -211,7 +207,12 @@ describe('Create and Read a single Pokemon', () => {
     { id: 6, name: 'Charizard', description: 'Fire type', type: 'fire', tenantId: 2 },
   ];
 
-  const client = createInProcApiClient(contract, dicontainer, registry);
+  const testContainer = dicontainer.createTestClone()
+    .override('TenantStore', () => new TenantStore())
+    .override('TenantProvider', (c) => c.getTenantStore() as ITenantProvider)
+    .override('SomeOtherService', (c) => new SomeOtherService(c.getTenantStore()));
+
+  const client = createInProcApiClient(contract, testContainer, registry);
 
   test('POST /api/v1/pokemons & GET /api/v1/pokemons/:id', async () => {
     const postResponse = await client.pokemons.POST({
@@ -231,16 +232,16 @@ describe('Create and Read a single Pokemon', () => {
     expect(pokemons.length).toBe(7);
     expect(pokemons[6].name).toBe('Bulbasaur');
 
-    // const getResponse = await client.pokemons.id(7).GET({
-    //   headers: { 'x-tenant-id': '1' }
-    // });
-    // expect(getResponse.code).toBe(HttpStatusCode.OK_200);
-    // expect(getResponse.body).toEqual({
-    //   id: 7,
-    //   name: 'Bulbasaur',
-    //   type: 'grass',
-    //   description: 'A grass-type Pokémon.',
-    //   tenantId: 1
-    // });
+    const getResponse = await client.pokemons.id(7).GET({
+      headers: { 'x-tenant-id': '1' }
+    });
+    expect(getResponse.code).toBe(HttpStatusCode.OK_200);
+    expect(getResponse.body).toEqual({
+      id: 7,
+      name: 'Bulbasaur',
+      type: 'grass',
+      description: 'A grass-type Pokémon.',
+      tenantId: 1
+    });
   });
 });

@@ -67,15 +67,15 @@ class InnerApiClient<TDef extends IApiContractDefinition & ValidateApiContractDe
         delete currObj[key];
         InnerApiClient._initialize(client, val, clientGenericHandler);
       } else if (val instanceof HttpMethodEndpoint) {
-        currObj[key] = (req: never | { pathParams: Record<string, string>; headers: Record<string, string>; query: Record<string, any>; body: any }) => {
+        currObj[key] = (requestObject: never | { pathParams: Record<string, string>; headers: Record<string, string>; query: Record<string, any>; body: any }) => {
           const pathParams = { ...client.__CONTEXT__.pathParameters };
           
           // Clear & reinitialize client context right before making the call
           client.__CONTEXT__ = InnerApiClient._initNewContext(); 
 
-          const headers = clientParseRequestDefinitionField(val.definition, 'headers', req);
-          const query = clientParseRequestDefinitionField(val.definition, 'query', req);
-          const body = clientParseRequestDefinitionField(val.definition, 'body', req);
+          const headers = clientParseRequestDefinitionField(val.definition, 'headers', requestObject);
+          const query = clientParseRequestDefinitionField(val.definition, 'query', requestObject);
+          const body = clientParseRequestDefinitionField(val.definition, 'body', requestObject);
 
           const path = `/${val.pathSegments.map(segment => 
               segment.startsWith(':') 
@@ -123,25 +123,41 @@ function clientParseRequestDefinitionField<
 >(
   definition: TDef,
   key: 'headers' | 'query' | 'body',
-  data: T
+  requestObject: T
 ): any {
   if (definition[key]) {
     if (
-      !(key in data)
-      || data[key as keyof T] === null
-      || data[key as keyof T] === undefined
+      !(key in requestObject)
+      || requestObject[key as keyof T] === null
+      || requestObject[key as keyof T] === undefined
     ) {
       // definition[key].isOptional was deprecated in favour of safeParse with success check
-      if (!definition[key].safeParse(data[key as keyof T]).success) {
-        throw new Error(`${key} are required for this endpoint`);
+      const result = definition[key].safeParse(requestObject[key as keyof T]);
+      if (!result.success) {
+        // since frameworks are not consistent in sending null vs undefined for missing request object parts, 
+        // we handle both cases here, so that
+        // we handle missing parts of the request object according to how the schema defines them
+        switch (definition[key].type) {
+          case 'optional':
+            if (requestObject[key] === null) {
+              return undefined;
+            }
+            break;
+          case 'nullable':
+            if (requestObject[key] === undefined) {
+              return null;
+            }
+            break;
+        }
+        throw new Error(`'${key}' is required for this endpoint`);
       }
-      return null;
+      return result.data;
     }
-    const result = definition[key].safeParse(data[key as keyof T]);
+    const result = definition[key].safeParse(requestObject[key as keyof T]);
     if (!result.success) {
       throw new Error(`Validation for '${key}' failed`, { cause: result.error });
     }
-    return result.data ?? null;
+    return result.data;
   }
-  return null;
+  return null; // by design, if request object parts are not defined through schema, we set them to null
 }

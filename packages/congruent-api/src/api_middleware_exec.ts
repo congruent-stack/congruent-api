@@ -1,5 +1,5 @@
 import { MiddlewareHandlersRegistryEntryInternal } from "./api_middleware.js";
-import { DIContainer, DIScope } from "./di_container.js";
+import { DIContainer, DIScope } from "./di_container_2.js";
 import { ClientHttpMethodEndpointHandlerInput } from "./http_method_endpoint_handler_input.js";
 
 export function execMiddleware<TDIContainer extends DIContainer>(
@@ -19,8 +19,8 @@ export function execMiddleware<TDIContainer extends DIContainer>(
       {
         headers: input.headers,
         pathParams: input.pathParams,
-        body: input.body ?? {},
-        query: input.query ?? {},
+        body: input.body,
+        query: input.query,
       },
       next
     );
