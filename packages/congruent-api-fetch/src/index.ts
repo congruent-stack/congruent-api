@@ -12,6 +12,8 @@ export interface IFetchOptions {
   enhanceRequestInit?: (reqInit: RequestInit, input: ClientHttpMethodEndpointHandlerInput) => RequestInit;
 }
 
+const EMPTY_OBJECT = Object.freeze({});
+
 export function createFetchClient<
   TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>
 > (
@@ -20,12 +22,12 @@ export function createFetchClient<
 ) {
   return createClient<TDef>(contract, async (input) => {
     const urlParams = new URLSearchParams();
-    for (const [key, value] of Object.entries(input.query ?? {})) {
+    for (const [key, value] of Object.entries(input.query ?? EMPTY_OBJECT)) {
       if (value !== undefined) {
         urlParams.append(key, String(value));
       }
     }
-    const finalPath = Object.entries(input.pathParams ?? {}).reduce((acc, [key, value]) => {
+    const finalPath = Object.entries(input.pathParams ?? EMPTY_OBJECT).reduce((acc, [key, value]) => {
       return acc.replace(`:${key}`, encodeURIComponent(String(value)));
     }, input.path);
     const urlParamsString = urlParams.toString();

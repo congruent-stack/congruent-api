@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { IApiContractDefinition, ValidateApiContractDefinition } from "./api_contract.js";
 import { ApiHandlersRegistry } from "./api_handlers_registry.js";
-import { DIContainer } from "./di_container.js";
+import { DIContainer, DIScope } from "./di_container_2.js";
 import { HttpMethodEndpoint } from "./http_method_endpoint.js";
 import { ExtractConcatenatedParamNamesFromPath, TypedPathParams } from "./typed_path_params.js";
 import { HttpMethod } from "./http_method_type.js";
@@ -90,6 +90,9 @@ export class MiddlewareHandlersRegistryEntryInternal<
 > {
   
   private readonly _dicontainer: TDIContainer;
+  public get dicontainer(): TDIContainer {
+    return this._dicontainer;
+  }
   
   private readonly _middlewareGenericPath: string;
   public get genericPath(): string {
@@ -137,7 +140,8 @@ export class MiddlewareHandlersRegistryEntryInternal<
   private _injection: any = (_dicontainer: TDIContainer) => ({});
 
   async trigger(
-    data: { 
+    diScope: DIScope<any>,
+    requestObject: { 
       headers: Record<string, string>,
       pathParams: Record<string, string>,
       query: object,
@@ -147,19 +151,19 @@ export class MiddlewareHandlersRegistryEntryInternal<
   ): Promise<any> {
     let badRequestResponse: HttpResponseObject | null = null;
     
-    const headers = middlewareParseRequestDefinitionField(this._inputSchemas, 'headers', data);
+    const headers = middlewareParseRequestDefinitionField(this._inputSchemas, 'headers', requestObject);
     if (isHttpResponseObject(headers)) {
       badRequestResponse = headers;
       return badRequestResponse;
     }
 
-    const query = middlewareParseRequestDefinitionField(this._inputSchemas, 'query', data);
+    const query = middlewareParseRequestDefinitionField(this._inputSchemas, 'query', requestObject);
     if (isHttpResponseObject(query)) {
       badRequestResponse = query;
       return badRequestResponse;
     }
 
-    const body = middlewareParseRequestDefinitionField(this._inputSchemas, 'body', data);
+    const body = middlewareParseRequestDefinitionField(this._inputSchemas, 'body', requestObject);
     if (isHttpResponseObject(body)) {
       badRequestResponse = body;
       return badRequestResponse;
@@ -169,21 +173,24 @@ export class MiddlewareHandlersRegistryEntryInternal<
 
     const path = `/${pathSegments.map(segment =>
       segment.startsWith(':')
-        ? (data.pathParams[segment.slice(1)] ?? '?')
+        ? (requestObject.pathParams[segment.slice(1)] ?? '?')
         : segment
     ).join('/')}`;
 
-    return await this._handler({ 
-      method: method as HttpMethod, // TODO: might be empty, as middleware can be registered with path only, without method, possible fix: take it from express.request.method
-      path,
-      genericPath: this.genericPath,
-      pathSegments: pathSegments,
-      headers,
-      pathParams: data.pathParams as any, 
-      query,
-      body,
-      injected: this._injection(this._dicontainer.createScope()),
-    }, next);
+    return await this._handler(
+      { 
+        method: method as HttpMethod, // TODO: might be empty, as middleware can be registered with path only, without method, possible fix: take it from express.request.method
+        path,
+        genericPath: this.genericPath,
+        pathSegments: pathSegments,
+        headers,
+        pathParams: requestObject.pathParams as any, 
+        query,
+        body,
+        injected: this._injection(diScope),
+      }, 
+      next
+    );
   }
 }
 
@@ -205,12 +212,12 @@ export class MiddlewareHandlersRegistryEntry<
     this._path = path;
   }
 
-  private _injection: any = (_dicontainer: TDIContainer) => ({});
+  private _injection: any = (_diScope: DIScope<any>) => ({});
   public get injection(): any {
     return this._injection;
   }
 
-  inject<TNewInjected>(injection: (dicontainer: TDIContainer) => TNewInjected): MiddlewareHandlersRegistryEntry<TApiDef, TDIContainer, TPathParams, TPath, TNewInjected> {
+  inject<TNewInjected>(injection: (diScope: ReturnType<TDIContainer['createScope']>) => TNewInjected): MiddlewareHandlersRegistryEntry<TApiDef, TDIContainer, TPathParams, TPath, TNewInjected> {
     this._injection = injection;
     return this as unknown as MiddlewareHandlersRegistryEntry<TApiDef, TDIContainer, TPathParams, TPath, TNewInjected>;
   }
@@ -248,8 +255,14 @@ export class MiddlewareHandlersRegistry<
     this._onHandlerRegisteredCallback = callback;
   }
 
+  private readonly _list: MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>[] = [];
+  public get list(): Readonly<MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>[]> {
+    return this._list;
+  }
+
   register<TInjected>(entry: MiddlewareHandlersRegistryEntryInternal<TDIContainer, TInjected>) {
     if (this._onHandlerRegisteredCallback) {
+      this._list.push(entry as MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>);
       this._onHandlerRegisteredCallback(entry);
     }
   }
@@ -265,16 +278,32 @@ function middlewareParseRequestDefinitionField<
 >(
   inputSchemas: MiddlewareHandlerInputSchemas,
   key: 'headers' | 'query' | 'body',
-  data: T
+  requestObject: T
 ): any {
   if (inputSchemas[key]) {
     if (
-      !(key in data)
-      || data[key as keyof T] === null
-      || data[key as keyof T] === undefined
+      !(key in requestObject)
+      || requestObject[key as keyof T] === null
+      || requestObject[key as keyof T] === undefined
     ) {
       // inputSchemas[key].isOptional was deprecated in favour of safeParse with success check
-      if (!inputSchemas[key].safeParse(data[key as keyof T]).success) {
+      const result = inputSchemas[key].safeParse(requestObject[key as keyof T]);
+      if (!result.success) {
+        // since frameworks are not consistent in sending null vs undefined for missing request object parts, 
+        // we handle both cases here, so that
+        // we handle missing parts of the request object according to how the schema defines them
+        switch (inputSchemas[key].type) {
+          case 'optional':
+            if (requestObject[key] === null) {
+              return undefined;
+            }
+            break;
+          case 'nullable':
+            if (requestObject[key] === undefined) {
+              return null;
+            }
+            break;
+        }
         return { 
           code: HttpStatusCode.BadRequest_400, 
           body: `'${key}' is required for this endpoint` + (
@@ -282,16 +311,16 @@ function middlewareParseRequestDefinitionField<
           )
         };
       }
-      return null;
+      return result.data;
     }
-    const result = inputSchemas[key].safeParse(data[key as keyof T]);
+    const result = inputSchemas[key].safeParse(requestObject[key as keyof T]);
     if (!result.success) {
       return { 
         code: HttpStatusCode.BadRequest_400, 
         body: result.error.issues
       };
     }
-    return result.data ?? null;
+    return result.data;
   }
-  return null;
+  return null; // by design, if request object parts are not defined through schema, we set them to null
 }

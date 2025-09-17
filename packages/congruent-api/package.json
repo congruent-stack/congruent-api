@@ -1,7 +1,7 @@
 {
   "name": "@congruent-stack/congruent-api",
   "type": "module",
-  "version": "0.7.0",
+  "version": "0.9.0-rc.0",
   "description": "Typescript schema-first tooling for agnostic REST APIs.",
   "keywords": [],
   "author": "congruent-stack",

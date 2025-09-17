@@ -29,9 +29,12 @@ export function createExpressRegistry<
       const { genericPath } = entry.methodEndpoint;
       const method = entry.methodEndpoint.method.toLowerCase() as LowerCasedHttpMethod;
       app[method](genericPath, async (req, res) => {
+        if (!res.locals.diScope) {
+          res.locals.diScope = entry.dicontainer.createScope();
+        }
         // @ts-ignore
         req.pathParams = req.params;
-        const result = await entry.trigger(req as any);
+        const result = await entry.trigger(res.locals.diScope, req as any);
         const resultHeaders = new Map(
           Object.entries(result.headers || {})
         ) as Map<string, string | number | readonly string[]>;
@@ -42,9 +45,12 @@ export function createExpressRegistry<
     },
     middlewareHandlerRegisteredCallback: (entry) => {
       app.use(entry.genericPath, async (req, res, next) => {
+        if (!res.locals.diScope) {
+          res.locals.diScope = entry.dicontainer.createScope();
+        }
         // @ts-ignore
         req.pathParams = req.params;
-        const haltResult = await entry.trigger(req as any, next);
+        const haltResult = await entry.trigger(res.locals.diScope, req as any, next);
         if (haltResult && isHttpResponseObject(haltResult)) {
           const haltResultHeaders = new Map(
             Object.entries(haltResult.headers || {})
