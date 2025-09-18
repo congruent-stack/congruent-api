@@ -2,33 +2,44 @@ import { z } from "zod";
 import { IApiContractDefinition, ValidateApiContractDefinition } from "./api_contract.js";
 import { ApiHandlersRegistry } from "./api_handlers_registry.js";
 import { DIContainer, DIScope } from "./di_container_2.js";
-import { HttpMethodEndpoint } from "./http_method_endpoint.js";
+import { HttpMethodEndpoint, HttpMethodEndpointResponses } from "./http_method_endpoint.js";
 import { ExtractConcatenatedParamNamesFromPath, TypedPathParams } from "./typed_path_params.js";
 import { HttpMethod } from "./http_method_type.js";
 import { HttpStatusCode } from "./http_status_code.js";
-import { HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
+import { CreateHandlerOutput, HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
+import { HttpMethodEndpointResponse } from "./http_method_endpoint_response.js";
 
-export type MiddlewareHandlerInputSchemas = {
-  headers?: z.ZodType,
-  query?: z.ZodType,
-  body?: z.ZodType
+export type MiddlewareHandlerSchemas = {
+  headers?: z.ZodType;
+  query?: z.ZodType;
+  body?: z.ZodType;
+  responses: HttpMethodEndpointResponses;
 };
 
 export type MiddlewareHandlerInput<
   TPathParams extends string,
-  InputSchemas extends MiddlewareHandlerInputSchemas,
+  TMiddlewareSchemas extends MiddlewareHandlerSchemas,
   TInjected
 > = {
   method: HttpMethod;
   pathSegments: readonly string[];
   path: string;
   genericPath: string;
-  headers: InputSchemas['headers'] extends z.ZodType ? z.output<InputSchemas['headers']> : Record<string, string>; // z.output because the handler receives the parsed input
+  headers: TMiddlewareSchemas['headers'] extends z.ZodType ? z.output<TMiddlewareSchemas['headers']> : Record<string, string>; // z.output because the handler receives the parsed input
   pathParams: TypedPathParams<TPathParams>;
-  query: InputSchemas['query'] extends z.ZodType ? z.output<InputSchemas['query']> : null; // z.output because the handler receives the parsed input
-  body: InputSchemas['body'] extends z.ZodType ? z.output<InputSchemas['body']> : null; // z.output because the handler receives the parsed input
+  query: TMiddlewareSchemas['query'] extends z.ZodType ? z.output<TMiddlewareSchemas['query']> : null; // z.output because the handler receives the parsed input
+  body: TMiddlewareSchemas['body'] extends z.ZodType ? z.output<TMiddlewareSchemas['body']> : null; // z.output because the handler receives the parsed input
   injected: Readonly<TInjected>;
 };
+
+export type MiddlewareHandlerOutput<TMiddlewareSchemas extends MiddlewareHandlerSchemas> =
+  | void
+  | {
+    [THttpStatusCode in keyof TMiddlewareSchemas['responses'] & HttpStatusCode]: 
+      TMiddlewareSchemas['responses'][THttpStatusCode] extends HttpMethodEndpointResponse<THttpStatusCode, infer TRespDef>
+        ? CreateHandlerOutput<THttpStatusCode, TRespDef>
+        : never;
+  }[keyof TMiddlewareSchemas['responses'] & HttpStatusCode];
 
 export type MiddlewareHandlerInputInternal<TInjected> = {
   method: HttpMethod;
@@ -44,12 +55,12 @@ export type MiddlewareHandlerInputInternal<TInjected> = {
 
 export type MiddlewareHandler<
   TPathParams extends string,
-  InputSchemas extends MiddlewareHandlerInputSchemas,
+  TMiddlewareSchemas extends MiddlewareHandlerSchemas,
   TInjected
 > = (
-  input: MiddlewareHandlerInput<TPathParams, InputSchemas, TInjected>,
+  input: MiddlewareHandlerInput<TPathParams, TMiddlewareSchemas, TInjected>,
   next: () => void
-) => Promise<HttpResponseObject | void>;
+) => Promise<MiddlewareHandlerOutput<TMiddlewareSchemas>>;
 
 export type MiddlewareHandlerInternal<TInjected> = (
   input: MiddlewareHandlerInputInternal<TInjected>,
@@ -119,20 +130,20 @@ export class MiddlewareHandlersRegistryEntryInternal<
     };
   }
 
-  private readonly _inputSchemas: MiddlewareHandlerInputSchemas;
+  private readonly _middlewareSchemas: MiddlewareHandlerSchemas;
 
   private readonly _handler: MiddlewareHandlerInternal<TInjected>;
 
   constructor(
     diContainer: TDIContainer,
     middlewarePath: string,
-    inputSchemas: MiddlewareHandlerInputSchemas,
+    middlewareSchemas: MiddlewareHandlerSchemas,
     injection: (dicontainer: TDIContainer) => TInjected,
     handler: MiddlewareHandlerInternal<TInjected>
   ) {
     this._dicontainer = diContainer;
     this._middlewareGenericPath = middlewarePath;
-    this._inputSchemas = inputSchemas;
+    this._middlewareSchemas = middlewareSchemas;
     this._injection = injection;
     this._handler = handler;
   }
@@ -151,19 +162,19 @@ export class MiddlewareHandlersRegistryEntryInternal<
   ): Promise<any> {
     let badRequestResponse: HttpResponseObject | null = null;
     
-    const headers = middlewareParseRequestDefinitionField(this._inputSchemas, 'headers', requestObject);
+    const headers = middlewareParseRequestDefinitionField(this._middlewareSchemas, 'headers', requestObject);
     if (isHttpResponseObject(headers)) {
       badRequestResponse = headers;
       return badRequestResponse;
     }
 
-    const query = middlewareParseRequestDefinitionField(this._inputSchemas, 'query', requestObject);
+    const query = middlewareParseRequestDefinitionField(this._middlewareSchemas, 'query', requestObject);
     if (isHttpResponseObject(query)) {
       badRequestResponse = query;
       return badRequestResponse;
     }
 
-    const body = middlewareParseRequestDefinitionField(this._inputSchemas, 'body', requestObject);
+    const body = middlewareParseRequestDefinitionField(this._middlewareSchemas, 'body', requestObject);
     if (isHttpResponseObject(body)) {
       badRequestResponse = body;
       return badRequestResponse;
@@ -222,14 +233,14 @@ export class MiddlewareHandlersRegistryEntry<
     return this as unknown as MiddlewareHandlersRegistryEntry<TApiDef, TDIContainer, TPathParams, TPath, TNewInjected>;
   }
 
-  register<const InputSchemas extends MiddlewareHandlerInputSchemas>(
-    inputSchemas: InputSchemas,
-    handler: MiddlewareHandler<`${TPathParams}${ExtractConcatenatedParamNamesFromPath<TPath>}`, InputSchemas, TInjected>
+  register<const TMiddlewareSchemas extends MiddlewareHandlerSchemas>(
+    middlewareSchemas: TMiddlewareSchemas,
+    handler: MiddlewareHandler<`${TPathParams}${ExtractConcatenatedParamNamesFromPath<TPath>}`, TMiddlewareSchemas, TInjected>
   ) {
     const internalEntry = new MiddlewareHandlersRegistryEntryInternal<TDIContainer, TInjected>(
       this._registry.dicontainer,
       this._path,
-      inputSchemas,
+      middlewareSchemas,
       this._injection,
       handler as unknown as MiddlewareHandlerInternal<TInjected>
     );
@@ -276,23 +287,23 @@ export class MiddlewareHandlersRegistry<
 function middlewareParseRequestDefinitionField<
   T extends Record<string, any>
 >(
-  inputSchemas: MiddlewareHandlerInputSchemas,
+  middlewareSchemas: MiddlewareHandlerSchemas,
   key: 'headers' | 'query' | 'body',
   requestObject: T
 ): any {
-  if (inputSchemas[key]) {
+  if (middlewareSchemas[key]) {
     if (
       !(key in requestObject)
       || requestObject[key as keyof T] === null
       || requestObject[key as keyof T] === undefined
     ) {
-      // inputSchemas[key].isOptional was deprecated in favour of safeParse with success check
-      const result = inputSchemas[key].safeParse(requestObject[key as keyof T]);
+      // middlewareSchemas[key].isOptional was deprecated in favour of safeParse with success check
+      const result = middlewareSchemas[key].safeParse(requestObject[key as keyof T]);
       if (!result.success) {
         // since frameworks are not consistent in sending null vs undefined for missing request object parts, 
         // we handle both cases here, so that
         // we handle missing parts of the request object according to how the schema defines them
-        switch (inputSchemas[key].type) {
+        switch (middlewareSchemas[key].type) {
           case 'optional':
             if (requestObject[key] === null) {
               return undefined;
@@ -313,7 +324,7 @@ function middlewareParseRequestDefinitionField<
       }
       return result.data;
     }
-    const result = inputSchemas[key].safeParse(requestObject[key as keyof T]);
+    const result = middlewareSchemas[key].safeParse(requestObject[key as keyof T]);
     if (!result.success) {
       return { 
         code: HttpStatusCode.BadRequest_400, 

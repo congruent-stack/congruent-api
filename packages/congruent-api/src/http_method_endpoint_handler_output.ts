@@ -10,7 +10,7 @@ export type HttpMethodEndpointHandlerOutput<TEndpointDefinition extends IHttpMet
       : never;
 }[keyof TEndpointDefinition['responses'] & HttpStatusCode];
 
-type CreateHandlerOutput<THttpStatusCode extends HttpStatusCode, TRespDef> = 
+export type CreateHandlerOutput<THttpStatusCode extends HttpStatusCode, TRespDef> = 
   TRespDef extends { headers: z.ZodType; body: z.ZodType; }
     ? {
         code: THttpStatusCode;
