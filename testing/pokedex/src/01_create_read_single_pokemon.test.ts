@@ -198,6 +198,22 @@ describe('Create and Read a single Pokemon', () => {
   });
 
   middleware(registry, '/pokemons')
+    .register({ 
+      responses: {
+        [HttpStatusCode.InternalServerError_500]: response({ body: InternalServerErrorSchema }),
+      }
+    }, async (_req, next) => {
+      // console.log('Middleware (1) triggered');
+      try {
+        await next();
+      } catch (err) {
+        console.log('Middleware (1) caught error:', (err as Error).message);
+        return { code: HttpStatusCode.InternalServerError_500, body: { traceid: crypto.randomUUID() } };
+      }
+      // console.log('Middleware (1) finished');
+    });
+
+  middleware(registry, '/pokemons')
     .inject((scope) => ({
       tenantsService: scope.getTenantsService(),
       tenantStore: scope.getTenantStore(),
@@ -210,15 +226,19 @@ describe('Create and Read a single Pokemon', () => {
         [HttpStatusCode.NotFound_404]: response({ body: NotFoundSchema }),
       }
     }, async (req, next) => {
+      // console.log('Middleware (2) triggered');
       if (!req.headers['x-tenant-id']) {
+        // console.log('Middleware (2) HALTING');
         return { code: HttpStatusCode.BadRequest_400, body: { details: 'Missing X-Tenant-ID header' } };
       }
       const tenantId = parseInt(req.headers['x-tenant-id'], 10);
       if (isNaN(tenantId)) {
+        // console.log('Middleware (2) HALTING');
         return { code: HttpStatusCode.BadRequest_400, body: { details: `Invalid Tenant ID` } };
       }
       const tenant = req.injected.tenantsService.findTenantById(tenantId);
       if (!tenant) {
+        // console.log('Middleware (2) HALTING');
         return { 
           code: HttpStatusCode.NotFound_404, 
           body: { 
@@ -230,7 +250,8 @@ describe('Create and Read a single Pokemon', () => {
         };
       }
       req.injected.tenantStore.setTenant(tenant);
-      next();
+      await next();
+      // console.log('Middleware (2) finished');
     });
 
   route(registry, 'POST /pokemons')
@@ -240,12 +261,16 @@ describe('Create and Read a single Pokemon', () => {
       pokemonsService: scope.getPokemonsService(),
     }))
     .register(async (req) => {
+      // console.log('Handler for POST /pokemons triggered');
       if (req.injected.tenantProvider.getUUID() !== req.injected.someOtherService.tenantStore.getUUID()) {
         throw new Error('SomeOtherService has different uuid than TenantProvider');
       }
       const tenantid = req.injected.tenantProvider.getTenant().id;
       if (req.injected.someOtherService.tenantStore.getTenant().id !== tenantid) {
         throw new Error('SomeOtherService has different tenant than TenantProvider');
+      }
+      if (req.headers['x-custom-header'] === 'throw-error') {
+        throw new Error('Error thrown as requested');
       }
       // const newPokemon = {
       //   id: pokemons.length + 1,
@@ -258,11 +283,13 @@ describe('Create and Read a single Pokemon', () => {
         ...req.body,
       });
       if (false) {
+        // console.log('Handler for POST /pokemons HALTING');
         return {
           code: HttpStatusCode.BadRequest_400,
           body: { userDetails: 'you did something wrong' }
         }
       }
+      // console.log('Handler for POST /pokemons finishing');
       return {
         code: HttpStatusCode.Created_201,
         headers: {
@@ -423,5 +450,39 @@ describe('Create and Read a single Pokemon', () => {
         id: "1000",
       }
     });
+  });
+
+  test('Throw and error POST /api/v1/pokemons', async () => {
+    const testContainer = dicontainer.createTestClone()
+      .override('TenantsCollection', () => createTenantsCollection())
+      .override('TenantsService', (scope) => new TenantsService(scope.getTenantsCollection()))
+      .override('TenantStore', () => new TenantStore())
+      .override('TenantProvider', (scope) => scope.getTenantStore() as ITenantProvider)
+      .override('SomeOtherService', (scope) => new SomeOtherService(scope.getTenantStore()))
+      .override('PokemonsCollection', () => createPokemonsCollection())
+      .override('PokemonsService', (scope) => new PokemonsService(scope.getPokemonsCollection()));
+
+    const client = createInProcApiClient(contract, testContainer, registry);
+    const outerScope = testContainer.createScope();
+    const pokemons = outerScope.getPokemonsCollection();
+    expect(pokemons.length).toBe(6);
+    
+    const postResponse = await client.pokemons.POST({
+      headers: {
+        'x-tenant-id': '1',
+        'x-custom-header': 'throw-error',
+      },
+      body: {
+        name: 'Bulbasaur',
+        type: 'grass',
+        description: 'A grass-type Pokémon.'
+      }
+    });
+    if (postResponse.code !== HttpStatusCode.InternalServerError_500) {
+      assert.fail(500, postResponse.code, `Response code does not match`);
+    }
+    expect(postResponse.body.traceid).toBeDefined();
+    expect(postResponse.body.traceid.length).toBeGreaterThan(10);
+    expect(pokemons.length).toBe(6); // no new pokemon created
   });
 });

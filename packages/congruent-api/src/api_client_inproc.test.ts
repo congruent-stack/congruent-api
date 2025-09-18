@@ -100,10 +100,11 @@ describe('My Test Suite', () => {
     }))
     .register({
       headers: BaseRequestHeadersSchema,
-      body: BaseRequestBodySchema.optional()
+      body: BaseRequestBodySchema.optional(),
         // .optional(), -> field not provided, or explicitly `undefined`
         // .nullable(), -> field explicitly `null`
         // .nullish(),  -> field not provided, explicitly `null`, or explicitly `undefined`
+      responses: {}
     }, async (req, next) => {
       req.injected.loggerSvc.log(`tenant id from header = ${req.headers['x-tenant-id']}`);
       if (req.body) {
@@ -112,7 +113,7 @@ describe('My Test Suite', () => {
         req.injected.loggerSvc.log('No body provided');
       }
       req.injected.loggerSvc.log('Middleware triggered for Pokemons API');
-      next();
+      await next();
     });
 
   route(pokedexApiReg, 'GET /pokemons/:id')

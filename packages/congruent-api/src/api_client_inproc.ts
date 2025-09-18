@@ -40,20 +40,30 @@ export function createInProcApiClient<
       .register(entry.handler);
   });
 
+  // const client = createClient<TDef>(contract, async (input) => {
+  //   const diScope = testContainer.createScope();
+  //   const haltExecResponse = await execMiddleware(diScope, mwReg.list, input);
+  //   if (haltExecResponse) {
+  //     return haltExecResponse;
+  //   }
+  //   const rt = route(testApiReg, `${input.method} ${input.genericPath}` as any);
+  //   const result = await rt.trigger(diScope, {
+  //     headers: input.headers,
+  //     pathParams: input.pathParams,
+  //     body: input.body,
+  //     query: input.query,
+  //   });
+  //   return result;
+  // });
+
   const client = createClient<TDef>(contract, async (input) => {
     const diScope = testContainer.createScope();
-    const haltExecResponse = await execMiddleware(diScope, mwReg.list, input);
-    if (haltExecResponse) {
-      return haltExecResponse;
-    }
     const rt = route(testApiReg, `${input.method} ${input.genericPath}` as any);
-    const result = await rt.trigger(diScope, {
-      headers: input.headers,
-      pathParams: input.pathParams,
-      body: input.body,
-      query: input.query,
-    });
-    return result;
+    const response = await execMiddleware(diScope, mwReg.list, rt, input);
+    if (!response) {
+      throw new Error(`No response from ${input.method} ${input.genericPath}`);
+    }
+    return response;
   });
   return client;
 };

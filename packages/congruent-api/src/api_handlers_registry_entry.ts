@@ -37,6 +37,10 @@ export class MethodEndpointHandlerRegistryEntry<
     this._dicontainer = dicontainer;
   }
 
+  public get genericPath(): string {
+    return this._methodEndpoint.genericPath;
+  }
+
   private _handler: HttpMethodEndpointHandler<TDef, TPathParams, TInjected> | null = null;
   public get handler(): HttpMethodEndpointHandler<TDef, TPathParams, TInjected> | null {
     return this._handler;
