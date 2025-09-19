@@ -5,7 +5,7 @@ import { createInProcApiClient, HttpStatusCode, createRegistry, apiContract, end
 import { DIContainer } from './di_container_2.js';
 
 
-describe('My Test Suite', () => {
+describe('api_client_inproc', () => {
   
   const BaseRequestHeadersSchema = z.object({
     'x-tenant-id': z.string(),
@@ -30,7 +30,7 @@ describe('My Test Suite', () => {
 
   const CreatePokemonSchema = PokemonSchema.omit({ id: true });
 
-  type CreatePokemon = z.output<typeof CreatePokemonSchema>;
+  // type CreatePokemon = z.output<typeof CreatePokemonSchema>;
 
   const NotFoundSchema = z.object({
     userMessage: z.string(),

@@ -1,3 +1,4 @@
+import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { DIContainer, DIScope } from "./di_container_2.js";
 import { HttpMethodEndpoint, IHttpMethodEndpointDefinition, ValidateHttpMethodEndpointDefinition } from "./http_method_endpoint.js";
 import { HttpMethodEndpointHandler } from "./http_method_endpoint_handler.js";
@@ -21,7 +22,7 @@ export class MethodEndpointHandlerRegistryEntry<
   TDIContainer extends DIContainer,
   TPathParams extends string,
   TInjected = {}
-> {
+> implements ICanTriggerAsync {
   private _methodEndpoint: HttpMethodEndpoint<TDef>;
   get methodEndpoint(): HttpMethodEndpoint<TDef> {
     return this._methodEndpoint;

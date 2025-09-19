@@ -1,3 +1,4 @@
+import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { createClient } from "./api_client.js";
 import { ApiContract, IApiContractDefinition, ValidateApiContractDefinition } from "./api_contract.js";
 import { ApiHandlersRegistry, createRegistry, flatListAllRegistryEntries } from "./api_handlers_registry.js";
@@ -16,54 +17,26 @@ export function createInProcApiClient<
   registry: ApiHandlersRegistry<TDef, TDIContainer>
 ) 
 {
-  const testApiReg = createRegistry(testContainer as unknown as TDIContainer, contract, {
-    handlerRegisteredCallback: (_entry) => {
-      //console.log('Registering TEST route:', entry.methodEndpoint.genericPath);
-    },
-    middlewareHandlerRegisteredCallback: (_entry) => {
-      //console.log('Registering TEST middleware:', entry.genericPath);
-    },
+  const mwHandlers: ICanTriggerAsync[] = [];
+  const mwReg = registry._middlewareRegistry as MiddlewareHandlersRegistry<TDIContainer>;
+  mwReg.list.forEach(mwEntry => {
+    mwHandlers.push(mwEntry);
   });
-
-  (registry._middlewareRegistry as MiddlewareHandlersRegistry<TDIContainer>).list.forEach(mwEntry => {
-    (testApiReg._middlewareRegistry as MiddlewareHandlersRegistry<TDIContainer>).register(mwEntry as any);
-  });
-
-  const mwReg = testApiReg._middlewareRegistry as MiddlewareHandlersRegistry<TDIContainer>;
-
-  flatListAllRegistryEntries(registry).forEach(entry => {
-    if (!entry.handler) {
-      return;
-    }
-    const rt = route(testApiReg, `${entry.methodEndpoint.method} ${entry.methodEndpoint.genericPath}` as any);
-    rt.inject(entry.injection)
-      .register(entry.handler);
-  });
-
-  // const client = createClient<TDef>(contract, async (input) => {
-  //   const diScope = testContainer.createScope();
-  //   const haltExecResponse = await execMiddleware(diScope, mwReg.list, input);
-  //   if (haltExecResponse) {
-  //     return haltExecResponse;
-  //   }
-  //   const rt = route(testApiReg, `${input.method} ${input.genericPath}` as any);
-  //   const result = await rt.trigger(diScope, {
-  //     headers: input.headers,
-  //     pathParams: input.pathParams,
-  //     body: input.body,
-  //     query: input.query,
-  //   });
-  //   return result;
-  // });
 
   const client = createClient<TDef>(contract, async (input) => {
     const diScope = testContainer.createScope();
-    const rt = route(testApiReg, `${input.method} ${input.genericPath}` as any);
-    const response = await execMiddleware(diScope, mwReg.list, rt, input);
+    const allHandlerEntries: ICanTriggerAsync[] = [...mwHandlers];
+    const endpointHandlerEntry = route(registry, `${input.method} ${input.genericPath}` as any);
+    if (!endpointHandlerEntry.handler) {
+      throw new Error(`No handler registered for ${input.method} ${input.genericPath}`);
+    }
+    allHandlerEntries.push(endpointHandlerEntry);
+    const response = await execMiddleware(diScope, allHandlerEntries, input);
     if (!response) {
       throw new Error(`No response from ${input.method} ${input.genericPath}`);
     }
     return response;
   });
+
   return client;
 };

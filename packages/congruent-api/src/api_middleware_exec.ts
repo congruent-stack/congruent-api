@@ -1,15 +1,13 @@
-import { MethodEndpointHandlerRegistryEntry } from "./api_handlers_registry_entry.js";
-import { MiddlewareHandlersRegistryEntryInternal } from "./api_middleware.js";
-import { DIContainer, DIScope } from "./di_container_2.js";
+import { ICanTriggerAsync } from "./api_can_trigger.js";
+import { DIScope } from "./di_container_2.js";
 import { ClientHttpMethodEndpointHandlerInput } from "./http_method_endpoint_handler_input.js";
 
-export async function execMiddleware<TDIContainer extends DIContainer>(
+export async function execMiddleware(
   diScope: DIScope<any>,
-  list: Readonly<MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>[]>,
-  final: Readonly<MethodEndpointHandlerRegistryEntry<any, TDIContainer, any, any>>,
+  allHandlerEntries: ICanTriggerAsync[],
   input: ClientHttpMethodEndpointHandlerInput
 ): Promise<any> {
-  const queue = [...list, final];
+  const queue = [...allHandlerEntries];
   let response: any = undefined;
 
   const next = async (): Promise<any> => {
@@ -20,6 +18,11 @@ export async function execMiddleware<TDIContainer extends DIContainer>(
     const current = queue.shift();
     if (!current) {
       // shortcircuit: no more middleware/handler to execute
+      return;
+    }
+    if (!input.genericPath.startsWith(current.genericPath)) {
+      // skip this middleware/handler as it does not match the current route
+      await next();
       return;
     }
     const currResponse = await current.trigger(

@@ -8,6 +8,7 @@ import { HttpMethod } from "./http_method_type.js";
 import { HttpStatusCode } from "./http_status_code.js";
 import { CreateHandlerOutput, HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
 import { HttpMethodEndpointResponse } from "./http_method_endpoint_response.js";
+import { ICanTriggerAsync } from "./api_can_trigger.js";
 
 export type MiddlewareHandlerSchemas = {
   headers?: z.ZodType;
@@ -98,7 +99,7 @@ export type MiddlewarePath<TDef, BasePath extends string = ""> =
 export class MiddlewareHandlersRegistryEntryInternal<
   TDIContainer extends DIContainer,
   TInjected
-> {
+> implements ICanTriggerAsync {
   
   private readonly _dicontainer: TDIContainer;
   public get dicontainer(): TDIContainer {
@@ -158,7 +159,7 @@ export class MiddlewareHandlersRegistryEntryInternal<
       query: object,
       body: object,
     }, 
-    next: () => void
+    next: () => Promise<void>
   ): Promise<any> {
     let badRequestResponse: HttpResponseObject | null = null;
     
