@@ -4,7 +4,8 @@ import express from "express";
 import request from "supertest";
 import { apiContract, DIContainer, endpoint, HttpStatusCode, middleware, response, route } from "@congruent-stack/congruent-api";
 import { createExpressRegistry } from "@congruent-stack/congruent-api-express";
-// import { createFetchClient } from "@congruent-stack/congruent-api-fetch";
+import { createFetchClient } from "@congruent-stack/congruent-api-fetch";
+import type { AddressInfo } from "node:net";
 
 describe("Express middleware execution order", () => {
   const RES_1_ITEMS = ['mw-1', 'mw-2', 'mw-3', 'mw-4', 'h-1'];
@@ -94,6 +95,8 @@ describe("Express middleware execution order", () => {
 
     const app = express();
     app.use(express.json());
+    // Listen on random port
+    const server = app.listen(0);
     const apiReg = createExpressRegistry(app, container, contract);
 
     middleware(apiReg, '/some/path/:someparam')
@@ -150,7 +153,6 @@ describe("Express middleware execution order", () => {
         return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: 'some-other-path' };
       });
 
-    // const client = createFetchClient(contract, { baseUrl: () => 'http://localhost' });
     const res1 = await request(app).get("/some/path/some-value");
     expect(res1.status).toBe(200);
     expect(res1.body).toBe("some-value");
@@ -162,6 +164,23 @@ describe("Express middleware execution order", () => {
     expect(res2.body).toBe("some-other-path");
     const items2 = JSON.parse(res2.headers['x-items'] as string);
     expect(items2).toEqual(RES_2_ITEMS);
+
+    const port = typeof server.address() === "object"
+      ? (server.address() as AddressInfo).port
+      : undefined;
+
+    const client = createFetchClient(contract, { baseUrl: () => `http://localhost:${port}` });
+    const clientRes1 = await client.some.path.someparam('some-value').GET();
+    expect(clientRes1.code).toBe(HttpStatusCode.OK_200);
+    expect(clientRes1.body).toBe("some-value");
+    const clientItems1 = JSON.parse(clientRes1.headers['x-items'] as string);
+    expect(clientItems1).toEqual(RES_1_ITEMS);
+
+    const clientRes2 = await client.some.other.path.GET();
+    expect(clientRes2.code).toBe(HttpStatusCode.OK_200);
+    expect(clientRes2.body).toBe("some-other-path");
+    const clientItems2 = JSON.parse(clientRes2.headers['x-items'] as string);
+    expect(clientItems2).toEqual(RES_2_ITEMS);
 
     const directResult = await route(apiReg, 'GET /some/other/path').trigger(
       container.createScope(), 
