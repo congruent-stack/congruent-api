@@ -17,7 +17,7 @@ describe('api_middleware_exec', () => {
     const contract = apiContract({
       some: {
         path: {
-          [':some-param']: {
+          [':someparam']: {
             GET: endpoint({
               responses: {
                 [HttpStatusCode.OK_200]: response({ body: z.string() }),
@@ -46,7 +46,7 @@ describe('api_middleware_exec', () => {
       middlewareHandlerRegisteredCallback: (entry) => mwHandlerEntries.push(entry),
     });
 
-    middleware(apiReg, '/some/path/:some-param')
+    middleware(apiReg, '/some/path/:someparam')
       .inject((scope) => ({
         items: scope.getItems()
       }))
@@ -82,13 +82,13 @@ describe('api_middleware_exec', () => {
         await next();
       });
 
-    route(apiReg, 'GET /some/path/:some-param')
+    route(apiReg, 'GET /some/path/:someparam')
       .inject((scope) => ({
         items: scope.getItems()
       }))
       .register(async (req) => {
         req.injected.items.push('h-1');
-        return { code: HttpStatusCode.OK_200, body: req.pathParams['some-param'] };
+        return { code: HttpStatusCode.OK_200, body: req.pathParams['someparam'] };
       });
 
     route(apiReg, 'GET /some/other/path')
@@ -102,16 +102,16 @@ describe('api_middleware_exec', () => {
 
     const diScope1 = container.createScope();
 
-    const genericPath1 = '/some/path/:some-param';
+    const genericPath1 = '/some/path/:someparam';
     const routeEntry1 = route(apiReg, `GET ${genericPath1}`);
     if (!routeEntry1.handler) {
       throw new Error('Route entry 1 has no handler');
     }
     const reqResponse1: any = await execMiddleware(diScope1, [...mwHandlerEntries, routeEntry1], {
       method: 'GET',
-      genericPath: '/some/path/:some-param',
+      genericPath: '/some/path/:someparam',
       headers: {},
-      pathParams: { 'some-param': 'some-value' },
+      pathParams: { 'someparam': 'some-value' },
       query: null,
       body: null,
       path: '/some/path/some-value',

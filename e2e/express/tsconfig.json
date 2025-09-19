@@ -1,0 +1,31 @@
+{
+  "compilerOptions": {
+    "stripInternal": true,
+    
+    /* Basic output */
+    "rootDir": "src",             
+    "outDir": "dist",             
+    "declaration": true,          
+    "declarationMap": true,       
+    "sourceMap": true,            
+
+    /* Module resolution & emit */
+    "module": "nodenext",
+    "target": "es2022",
+    "moduleResolution": "nodenext",
+    "resolveJsonModule": true,    
+
+    /* Strictness */
+    "strict": true,
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+
+    /* Allows importing .js files (post‑build) without errors */
+    "allowSyntheticDefaultImports": true,
+    "allowJs": false
+  },
+
+  "include": ["src/**/*.ts"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}

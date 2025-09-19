@@ -1,0 +1,38 @@
+{
+  "name": "@congruent-stack/e2e-express",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Typescript schema-first tooling for agnostic REST APIs.",
+  "keywords": [],
+  "author": "congruent-stack",
+  "license": "MIT",
+  "packageManager": "pnpm@10.15.1",
+  "files": [
+    "dist"
+  ],
+  "exports": {
+    "import": "./src/index.ts"
+  },
+  "publishConfig": {
+    "exports": {
+      "require": {
+        "types": "./dist/index.d.cts",
+        "default": "./dist/index.cjs"
+      },
+      "import": {
+        "types": "./dist/index.d.mts",
+        "default": "./dist/index.mjs"
+      }
+    }
+  },
+  "dependencies": {
+    "@types/express": "catalog:",
+    "@types/supertest": "catalog:",
+    "express": "catalog:",
+    "supertest": "catalog:",
+    "zod": "catalog:",
+    "@congruent-stack/congruent-api": "workspace:*",
+    "@congruent-stack/congruent-api-express": "workspace:*",
+    "@congruent-stack/congruent-api-fetch": "workspace:*"
+  }
+}
