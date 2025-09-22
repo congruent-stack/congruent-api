@@ -2,7 +2,7 @@ import { describe, test, expect } from "vitest";
 import z from "zod";
 import express from "express";
 import request from "supertest";
-import { apiContract, DIContainer, endpoint, HttpStatusCode, middleware, response, route } from "@congruent-stack/congruent-api";
+import { apiContract, createInProcApiClient, createRegistry, DIContainer, endpoint, HttpStatusCode, middleware, response, route } from "@congruent-stack/congruent-api";
 import { createExpressRegistry } from "@congruent-stack/congruent-api-express";
 import { createFetchClient } from "@congruent-stack/congruent-api-fetch";
 import type { AddressInfo } from "node:net";
@@ -61,6 +61,261 @@ describe("Express middleware execution order", () => {
     expect(res2.body).toBe("some-other-path");
     const items2 = JSON.parse(res2.headers['x-items'] as string);
     expect(items2).toEqual(RES_2_ITEMS);
+  });
+
+  test('test-1-congruent-api-inproc-client', async () => {
+    const responseHeadersSchema = z.object({
+      'x-items': z.string(),
+    });
+    const contract = apiContract({
+      some: {
+        path: {
+          [':someparam']: {
+            GET: endpoint({
+              responses: {
+                [HttpStatusCode.OK_200]: response({ headers: responseHeadersSchema, body: z.string() }),
+              },
+            }),
+          }
+        },
+        other: {
+          path: {
+            GET: endpoint({
+              responses: {
+                [HttpStatusCode.OK_200]: response({ headers: responseHeadersSchema, body: z.string() }),
+              },
+            }),
+          }
+        }
+      }
+    });
+
+    const container = new DIContainer()
+      .register('Items', () => [] as string[], 'scoped');
+      
+    const apiReg = createRegistry(container, contract, {
+      handlerRegisteredCallback: (entry) => {
+        //console.log('Registering route:', entry.methodEndpoint.genericPath);
+      },
+      middlewareHandlerRegisteredCallback: (entry) => {
+        //console.log('Registering middleware:', entry.genericPath);
+      },
+    });
+
+    middleware(apiReg, '/some/path/:someparam')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register({ responses: {} }, async (req, next) => {
+        req.injected.items.push('mw-1');
+        await next();
+      });
+
+    middleware(apiReg, '/some/path')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register({ responses: {} }, async (req, next) => {
+        req.injected.items.push('mw-2');
+        await next();
+      });
+
+    middleware(apiReg, '/some')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register({ responses: {} }, async (req, next) => {
+        req.injected.items.push('mw-3');
+        await next();
+      });
+
+    middleware(apiReg, '/some/path')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register({ responses: {} }, async (req, next) => {
+        req.injected.items.push('mw-4');
+        await next();
+      });
+
+    route(apiReg, 'GET /some/path/:someparam')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register(async (req) => {
+        req.injected.items.push('h-1');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: req.pathParams['someparam'] };
+      });
+
+    route(apiReg, 'GET /some/other/path')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register(async (req) => {
+        req.injected.items.push('h-2');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: 'some-other-path' };
+      });
+
+    const testContainer = container.createTestClone()
+      .override('Items', () => [] as string[]);
+
+    const inProcClient = createInProcApiClient(contract, testContainer, apiReg);
+
+    const inProcClientRes1 = await inProcClient.some.path.someparam('some-value').GET();
+    expect(inProcClientRes1.code).toBe(200);
+    expect(inProcClientRes1.body).toBe("some-value");
+    const inProcClientItems1 = JSON.parse(inProcClientRes1.headers['x-items'] as string);
+    expect(inProcClientItems1).toEqual(RES_1_ITEMS);
+
+    const inProcClientRes2 = await inProcClient.some.other.path.GET();
+    expect(inProcClientRes2.code).toBe(200);
+    expect(inProcClientRes2.body).toBe("some-other-path");
+    const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
+    expect(inProcClientItems2).toEqual(RES_2_ITEMS);
+
+    const directResult = await route(apiReg, 'GET /some/other/path').trigger(
+      testContainer.createScope(), 
+      {
+        headers: {}, 
+        pathParams: {}, 
+        query: {}, 
+        body: {}
+      });
+    expect(directResult.code).toBe(HttpStatusCode.OK_200);
+  });
+
+  test('test-1-congruent-api-inproc-client-filtered-middleware', async () => {
+    const responseHeadersSchema = z.object({
+      'x-items': z.string(),
+    });
+    const contract = apiContract({
+      some: {
+        path: {
+          [':someparam']: {
+            GET: endpoint({
+              responses: {
+                [HttpStatusCode.OK_200]: response({ headers: responseHeadersSchema, body: z.string() }),
+              },
+            }),
+          }
+        },
+        other: {
+          path: {
+            GET: endpoint({
+              responses: {
+                [HttpStatusCode.OK_200]: response({ headers: responseHeadersSchema, body: z.string() }),
+              },
+            }),
+          }
+        }
+      }
+    });
+
+    const container = new DIContainer()
+      .register('Items', () => [] as string[], 'scoped');
+      
+    const apiReg = createRegistry(container, contract, {
+      handlerRegisteredCallback: (entry) => {
+        //console.log('Registering route:', entry.methodEndpoint.genericPath);
+      },
+      middlewareHandlerRegisteredCallback: (entry) => {
+        //console.log('Registering middleware:', entry.genericPath);
+      },
+    });
+
+    middleware(apiReg, '/some/path/:someparam')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register({ responses: {} }, async (req, next) => {
+        req.injected.items.push('mw-1');
+        await next();
+      });
+
+    middleware(apiReg, '/some/path')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register({ responses: {} }, async (req, next) => {
+        req.injected.items.push('mw-2');
+        await next();
+      });
+
+    middleware(apiReg, '/some')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register({ responses: {} }, async (req, next) => {
+        req.injected.items.push('mw-3');
+        await next();
+      });
+
+    middleware(apiReg, '/some/path')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register({ responses: {} }, async (req, next) => {
+        req.injected.items.push('mw-4');
+        await next();
+      });
+
+    route(apiReg, 'GET /some/path/:someparam')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register(async (req) => {
+        req.injected.items.push('h-1');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: req.pathParams['someparam'] };
+      });
+
+    route(apiReg, 'GET /some/other/path')
+      .inject((scope) => ({
+        items: scope.getItems()
+      }))
+      .register(async (req) => {
+        req.injected.items.push('h-2');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: 'some-other-path' };
+      });
+
+    const testContainer = container.createTestClone()
+      .override('Items', () => [] as string[]);
+
+    const inProcClient = createInProcApiClient(contract, testContainer, apiReg, {
+      filterMiddleware: (genericPath, _ndx) => genericPath === '/some/path',
+      mockEndpointResponse: (genericPath, method, scope) => {
+        if (genericPath === '/some/other/path' && method === 'GET') {
+          scope.getItems().push('h-2-mock');
+          return { code: 500, headers: { 'x-items': JSON.stringify(scope.getItems()) }, body: 'some-other-path-mock' };
+        }
+        return null;
+      }
+    });
+
+    const inProcClientRes1 = await inProcClient.some.path.someparam('some-value').GET();
+    expect(inProcClientRes1.code).toBe(200);
+    expect(inProcClientRes1.body).toBe("some-value");
+    const inProcClientItems1 = JSON.parse(inProcClientRes1.headers['x-items'] as string);
+    expect(inProcClientItems1).toEqual(
+      RES_1_ITEMS.filter(i => i !== 'mw-1' && i !== 'mw-3')
+    );
+
+    const inProcClientRes2 = await inProcClient.some.other.path.GET();
+    expect(inProcClientRes2.code).toBe(500);
+    expect(inProcClientRes2.body).toBe("some-other-path-mock");
+    const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
+    expect(inProcClientItems2).toEqual(
+      ['h-2-mock']
+    );
+
+    const directResult = await route(apiReg, 'GET /some/other/path').trigger(
+      testContainer.createScope(), 
+      {
+        headers: {}, 
+        pathParams: {}, 
+        query: {}, 
+        body: {}
+      });
+    expect(directResult.code).toBe(HttpStatusCode.OK_200);
   });
 
   test('test-1-congruent-api-express', async () => {
@@ -181,6 +436,23 @@ describe("Express middleware execution order", () => {
     expect(clientRes2.body).toBe("some-other-path");
     const clientItems2 = JSON.parse(clientRes2.headers['x-items'] as string);
     expect(clientItems2).toEqual(RES_2_ITEMS);
+
+    const testContainer = container.createTestClone()
+      .override('Items', () => [] as string[]);
+
+    const inProcClient = createInProcApiClient(contract, testContainer, apiReg);
+
+    const inProcClientRes1 = await inProcClient.some.path.someparam('some-value').GET();
+    expect(inProcClientRes1.code).toBe(200);
+    expect(inProcClientRes1.body).toBe("some-value");
+    const inProcClientItems1 = JSON.parse(inProcClientRes1.headers['x-items'] as string);
+    expect(inProcClientItems1).toEqual(RES_1_ITEMS);
+
+    const inProcClientRes2 = await inProcClient.some.other.path.GET();
+    expect(inProcClientRes2.code).toBe(200);
+    expect(inProcClientRes2.body).toBe("some-other-path");
+    const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
+    expect(inProcClientItems2).toEqual(RES_2_ITEMS);
 
     const directResult = await route(apiReg, 'GET /some/other/path').trigger(
       container.createScope(), 

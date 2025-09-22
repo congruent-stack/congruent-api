@@ -1,11 +1,20 @@
 import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { createClient } from "./api_client.js";
 import { ApiContract, IApiContractDefinition, ValidateApiContractDefinition } from "./api_contract.js";
-import { ApiHandlersRegistry, createRegistry, flatListAllRegistryEntries } from "./api_handlers_registry.js";
+import { ApiHandlersRegistry } from "./api_handlers_registry.js";
 import { MiddlewareHandlersRegistry } from "./api_middleware.js";
 import { execMiddleware } from "./api_middleware_exec.js";
 import { route } from "./api_routing.js";
-import { DIContainer, DIContainerTestClone } from "./di_container_2.js";
+import { DIContainer, DIContainerTestClone, DIRegistry, DIScope } from "./di_container_2.js";
+import { HttpResponseObject } from "./http_method_endpoint_handler_output.js";
+
+export interface InProcApiClientOptions<
+  TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>,
+  TDIContainer extends DIContainer
+> {
+  filterMiddleware?: (genericPath: string, middlewareIndex: number) => boolean;
+  mockEndpointResponse?: (genericPath: string, method: string, diScope: ReturnType<TDIContainer['createScope']>) => HttpResponseObject | null;
+}
 
 export function createInProcApiClient<
   TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>,
@@ -14,14 +23,24 @@ export function createInProcApiClient<
 >(
   contract: ApiContract<TDef>,
   testContainer: TDIContainerTestClone,
-  registry: ApiHandlersRegistry<TDef, TDIContainer>
+  registry: ApiHandlersRegistry<TDef, TDIContainer>,
+  options?: InProcApiClientOptions<TDef, TDIContainer>
 ) 
 {
   const mwHandlers: ICanTriggerAsync[] = [];
   const mwReg = registry._middlewareRegistry as MiddlewareHandlersRegistry<TDIContainer>;
-  mwReg.list.forEach(mwEntry => {
+  const mwNdx = 0;
+  for (const mwEntry of mwReg.list) {
+    if (!options?.filterMiddleware) {
+      mwHandlers.push(mwEntry);
+      continue;
+    }
+    const isIncluded = options.filterMiddleware(mwEntry.genericPath, mwNdx);
+    if (!isIncluded) {
+      continue;
+    }
     mwHandlers.push(mwEntry);
-  });
+  }
 
   const client = createClient<TDef>(contract, async (input) => {
     const diScope = testContainer.createScope();
@@ -29,6 +48,17 @@ export function createInProcApiClient<
     const endpointHandlerEntry = route(registry, `${input.method} ${input.genericPath}` as any);
     if (!endpointHandlerEntry.handler) {
       throw new Error(`No handler registered for ${input.method} ${input.genericPath}`);
+    }
+    if (options?.mockEndpointResponse) {
+      const mockResponse = options.mockEndpointResponse(input.genericPath, input.method, diScope as any);
+      if (mockResponse) {
+        allHandlerEntries.push({
+          genericPath: endpointHandlerEntry.genericPath,
+          trigger: async (_diScope, _requestObject, _next) => {
+            return mockResponse;
+          }
+        });
+      }
     }
     allHandlerEntries.push(endpointHandlerEntry);
     const response = await execMiddleware(diScope, allHandlerEntries, input);
