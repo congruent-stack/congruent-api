@@ -2,7 +2,7 @@ import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { DIScope } from "./di_container_2.js";
 import { ClientHttpMethodEndpointHandlerInput } from "./http_method_endpoint_handler_input.js";
 
-export async function execMiddleware(
+export async function execHandlerChain(
   diScope: DIScope<any>,
   allHandlerEntries: ICanTriggerAsync[],
   input: ClientHttpMethodEndpointHandlerInput

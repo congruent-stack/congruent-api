@@ -9,6 +9,7 @@ export * from "./api_handlers_registry.js";
 export * from "./api_handlers_registry_entry.js";
 export * from "./api_handlers_registry_partial.js";
 export * from "./api_handlers_registration.js";
+export * from "./api_exec_handler_chain.js";
 export * from "./api_routing.js";
 export * from "./api_routing_partial.js";
 export * from "./api_client.js";
