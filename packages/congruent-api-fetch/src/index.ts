@@ -34,6 +34,7 @@ export function createFetchClient<
     const finalFullPath = finalPath + (urlParamsString ? `?${urlParamsString}` : '');
     const baseUrl = typeof options.baseUrl === 'function' ? options.baseUrl() : options.baseUrl;
     const fullUrlAddress = new URL(finalFullPath, baseUrl);
+    // console.log(`Request: ${input.method} ${fullUrlAddress.toString()}`);
     const requestInit: RequestInit = {
       method: input.method,
       headers: { 
@@ -47,6 +48,11 @@ export function createFetchClient<
       : requestInit;
     const response = await fetch(fullUrlAddress, finalRequestInit);
     const responseCode = response.status as HttpStatusCode;
+    const responseContentType = response.headers.get("content-type") || "";
+    if (!responseContentType.includes("application/json")) {
+      // console.error(`Response [${responseCode}]`, await response.text());
+      throw new Error(`Expected 'application/json' content-type in response header, but got '${responseContentType}'`);
+    }
     const responseHeaders = Object.fromEntries(response.headers.entries());
     const responseBody = responseCode === HttpStatusCode.NoContent_204 // TODO: Use a more robust check for empty body
       ? undefined 
