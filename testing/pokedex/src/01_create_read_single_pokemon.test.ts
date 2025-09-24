@@ -207,7 +207,7 @@ describe('Create and Read a single Pokemon', () => {
       try {
         await next();
       } catch (err) {
-        console.log('Middleware (1) caught error:', (err as Error).message);
+        // console.log('Middleware (1) caught error:', (err as Error).message);
         return { code: HttpStatusCode.InternalServerError_500, body: { traceid: crypto.randomUUID() } };
       }
       // console.log('Middleware (1) finished');
