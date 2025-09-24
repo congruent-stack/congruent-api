@@ -1,9 +1,9 @@
-import { expect, test, describe } from 'vitest';
+import { expect, test, describe, afterAll } from 'vitest';
 import type { AddressInfo } from "node:net";
 import z from "zod";
 import express from "express";
 
-import { apiContract, DIContainer, endpoint, HttpResponseObject, HttpStatusCode, middleware, response, route } from '@congruent-stack/congruent-api';
+import { apiContract, DIContainer, endpoint, HttpStatusCode, middleware, response, route } from '@congruent-stack/congruent-api';
 import { createFetchClient } from '@congruent-stack/congruent-api-fetch';
 import { createExpressRegistry } from '@congruent-stack/congruent-api-express';
 
@@ -38,6 +38,8 @@ describe('api_client', () => {
     
   // Listen on random port
   const server = app.listen(0);
+  afterAll(() => server.close());
+  
   const apiReg = createExpressRegistry(app, container, contract);
 
   route(apiReg, 'POST /api/foo/:myparam')

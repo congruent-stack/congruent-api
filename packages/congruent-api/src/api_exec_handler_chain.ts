@@ -25,7 +25,7 @@ export async function execHandlerChain(
       await next();
       return;
     }
-    const currResponse = await current.trigger(
+    const currResponse = await current.triggerNoStaticTypeCheck(
       diScope,
       {
         headers: input.headers,

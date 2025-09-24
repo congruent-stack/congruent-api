@@ -4,6 +4,8 @@ import { HttpMethodEndpoint, IHttpMethodEndpointDefinition, ValidateHttpMethodEn
 import { HttpMethodEndpointHandler } from "./http_method_endpoint_handler.js";
 import { HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
 import { HttpStatusCode } from "./http_status_code.js";
+import z from "zod";
+import { TypedPathParams } from "./typed_path_params.js";
 
 export type PrepareRegistryEntryCallback<
   TDef extends IHttpMethodEndpointDefinition & ValidateHttpMethodEndpointDefinition<TDef>,
@@ -75,6 +77,18 @@ export class MethodEndpointHandlerRegistryEntry<
   }
 
   async trigger(
+    diScope: ReturnType<TDIContainer['createScope']>,
+    requestObject: { 
+      headers: TDef['headers'] extends z.ZodType ? z.output<TDef['headers']> : Record<string, string>; // z.output because the handler receives the parsed input
+      pathParams: TypedPathParams<TPathParams>;
+      query: TDef['query'] extends z.ZodType ? z.output<TDef['query']> : null; // z.output because the handler receives the parsed input
+      body: TDef['body'] extends z.ZodType ? z.output<TDef['body']> : null; // z.output because the handler receives the parsed input
+    }
+  ): Promise<any> {
+    return this.triggerNoStaticTypeCheck(diScope, requestObject as any);
+  }
+
+  async triggerNoStaticTypeCheck(
     diScope: DIScope<any>,
     requestObject: { 
       headers: Record<string, string>,

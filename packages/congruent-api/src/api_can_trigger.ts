@@ -1,7 +1,7 @@
 import { DIScope } from "./di_container_2.js";
 
 export interface ICanTriggerAsync {
-  trigger(
+  triggerNoStaticTypeCheck(
     diScope: DIScope<any>,
     requestObject: { 
       headers: Record<string, string>,

@@ -51,7 +51,7 @@ export function createExpressRegistry<
         // @ts-ignore
         req.pathParams = req.params;
         const nextAsync = next as () => Promise<void>;
-        const haltResult = await entry.trigger(res.locals.diScope, req as any, nextAsync);
+        const haltResult = await entry.triggerNoStaticTypeCheck(res.locals.diScope, req as any, nextAsync);
         if (haltResult && isHttpResponseObject(haltResult)) {
           const haltResultHeaders = new Map(
             Object.entries(haltResult.headers || {})

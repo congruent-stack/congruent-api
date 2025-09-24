@@ -151,7 +151,23 @@ export class MiddlewareHandlersRegistryEntryInternal<
 
   private _injection: any = (_dicontainer: TDIContainer) => ({});
 
-  async trigger(
+  async trigger<
+    TPathParams extends string,
+    const TMiddlewareSchemas extends MiddlewareHandlerSchemas,
+  >(
+    diScope: ReturnType<TDIContainer['createScope']>,
+    requestObject: { 
+      headers: TMiddlewareSchemas['headers'] extends z.ZodType ? z.output<TMiddlewareSchemas['headers']> : Record<string, string>; // z.output because the handler receives the parsed input
+      pathParams: TypedPathParams<TPathParams>;
+      query: TMiddlewareSchemas['query'] extends z.ZodType ? z.output<TMiddlewareSchemas['query']> : null; // z.output because the handler receives the parsed input
+      body: TMiddlewareSchemas['body'] extends z.ZodType ? z.output<TMiddlewareSchemas['body']> : null; // z.output because the handler receives the parsed input
+    }, 
+    next: () => Promise<void>
+  ): Promise<any> {
+    return this.triggerNoStaticTypeCheck(diScope, requestObject as any, next);
+  }
+
+  async triggerNoStaticTypeCheck(
     diScope: DIScope<any>,
     requestObject: { 
       headers: Record<string, string>,

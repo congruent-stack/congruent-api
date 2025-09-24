@@ -173,7 +173,7 @@ describe("Express middleware execution order", () => {
     const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
     expect(inProcClientItems2).toEqual(RES_2_ITEMS);
 
-    const directResult = await route(apiReg, 'GET /some/other/path').trigger(
+    const directResult = await route(apiReg, 'GET /some/other/path').triggerNoStaticTypeCheck(
       testContainer.createScope(), 
       {
         headers: {}, 
@@ -307,7 +307,7 @@ describe("Express middleware execution order", () => {
       ['h-2-mock']
     );
 
-    const directResult = await route(apiReg, 'GET /some/other/path').trigger(
+    const directResult = await route(apiReg, 'GET /some/other/path').triggerNoStaticTypeCheck(
       testContainer.createScope(), 
       {
         headers: {}, 
@@ -350,8 +350,10 @@ describe("Express middleware execution order", () => {
 
     const app = express();
     app.use(express.json());
+
     // Listen on random port
     const server = app.listen(0);
+
     const apiReg = createExpressRegistry(app, container, contract);
 
     middleware(apiReg, '/some/path/:someparam')
@@ -454,15 +456,28 @@ describe("Express middleware execution order", () => {
     const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
     expect(inProcClientItems2).toEqual(RES_2_ITEMS);
 
-    const directResult = await route(apiReg, 'GET /some/other/path').trigger(
+    const directResult = await route(apiReg, 'GET /some/other/path').triggerNoStaticTypeCheck(
       container.createScope(), 
       {
         headers: {}, 
         pathParams: {}, 
         query: {}, 
-        body: {}
+        body: {} //TODO: null is not assignable to object 
       });
     expect(directResult.code).toBe(HttpStatusCode.OK_200);
+
+    const directResult2 = await route(apiReg, 'GET /some/other/path').trigger(
+      container.createScope(), 
+      {
+        headers: {}, 
+        pathParams: {}, 
+        query: null,
+        body: null
+      }
+    );
+    expect(directResult2.code).toBe(HttpStatusCode.OK_200);
+
+    server.close();
   });
 });
 

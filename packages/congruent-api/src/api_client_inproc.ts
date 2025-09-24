@@ -7,11 +7,13 @@ import { execHandlerChain } from "./api_exec_handler_chain.js";
 import { route } from "./api_routing.js";
 import { DIContainer, DIContainerTestClone } from "./di_container_2.js";
 import { HttpResponseObject } from "./http_method_endpoint_handler_output.js";
+import { ClientHttpMethodEndpointHandlerInput } from "./http_method_endpoint_handler_input.js";
 
 export interface InProcApiClientOptions<
   TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>,
   TDIContainer extends DIContainer
 > {
+  enhanceRequest?: (input: ClientHttpMethodEndpointHandlerInput) => ClientHttpMethodEndpointHandlerInput;
   filterMiddleware?: (genericPath: string, middlewareIndex: number) => boolean;
   mockEndpointResponse?: (genericPath: string, method: string, diScope: ReturnType<TDIContainer['createScope']>) => HttpResponseObject | null;
 }
@@ -43,6 +45,9 @@ export function createInProcApiClient<
   }
 
   const client = createClient<TDef>(contract, async (input) => {
+    if (options?.enhanceRequest) {
+      input = options.enhanceRequest(input);
+    }
     const diScope = testContainer.createScope();
     const allHandlerEntries: ICanTriggerAsync[] = [...mwHandlers];
     const endpointHandlerEntry = route(registry, `${input.method} ${input.genericPath}` as any);
@@ -54,7 +59,7 @@ export function createInProcApiClient<
       if (mockResponse) {
         allHandlerEntries.push({
           genericPath: endpointHandlerEntry.genericPath,
-          trigger: async (_diScope, _requestObject, _next) => {
+          triggerNoStaticTypeCheck: async (_diScope, _requestObject, _next) => {
             return mockResponse;
           }
         });
