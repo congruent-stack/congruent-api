@@ -5,7 +5,7 @@ import { ApiHandlersRegistry } from "./api_handlers_registry.js";
 import { MiddlewareHandlersRegistry } from "./api_middleware.js";
 import { execHandlerChain } from "./api_exec_handler_chain.js";
 import { route } from "./api_routing.js";
-import { DIContainer, DIContainerTestClone } from "./di_container_2.js";
+import { DIContainer, DIContainerTestClone } from "./di_container.js";
 import { HttpResponseObject } from "./http_method_endpoint_handler_output.js";
 import { ClientHttpMethodEndpointHandlerInput } from "./http_method_endpoint_handler_input.js";
 

@@ -1,5 +1,5 @@
 import { ICanTriggerAsync } from "./api_can_trigger.js";
-import { DIContainer, DIScope } from "./di_container_2.js";
+import { DIContainer, DIScope } from "./di_container.js";
 import { HttpMethodEndpoint, IHttpMethodEndpointDefinition, ValidateHttpMethodEndpointDefinition } from "./http_method_endpoint.js";
 import { HttpMethodEndpointHandler } from "./http_method_endpoint_handler.js";
 import { HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";

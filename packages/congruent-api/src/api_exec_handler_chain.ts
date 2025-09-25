@@ -1,5 +1,5 @@
 import { ICanTriggerAsync } from "./api_can_trigger.js";
-import { DIScope } from "./di_container_2.js";
+import { DIScope } from "./di_container.js";
 import { ClientHttpMethodEndpointHandlerInput } from "./http_method_endpoint_handler_input.js";
 
 export async function execHandlerChain(

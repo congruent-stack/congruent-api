@@ -1,7 +1,7 @@
 import { ApiContract, IApiContractDefinition, ValidateApiContractDefinition } from "./api_contract.js";
 import { MethodEndpointHandlerRegistryEntry, OnHandlerRegisteredCallback } from "./api_handlers_registry_entry.js";
 import { MiddlewareHandlersRegistry, OnMiddlewareHandlerRegisteredCallback } from "./api_middleware.js";
-import { DIContainer } from "./di_container_2.js";
+import { DIContainer } from "./di_container.js";
 import { IHttpMethodEndpointDefinition, HttpMethodEndpoint, ValidateHttpMethodEndpointDefinition } from "./http_method_endpoint.js";
 
 export function flatListAllRegistryEntries<

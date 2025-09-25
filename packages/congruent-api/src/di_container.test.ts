@@ -1,7 +1,7 @@
 import { expect, test, describe } from 'vitest';
-import { DIContainer } from './di_container_2';
+import { DIContainer } from './di_container';
 
-describe('DIContainer 2', () => {
+describe('DIContainer', () => {
   test('should register and resolve transient services', () => {
     class FooService {
       public readonly uuid = crypto.randomUUID();

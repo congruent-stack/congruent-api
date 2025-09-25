@@ -1,4 +1,4 @@
-import { DIScope } from "./di_container_2.js";
+import { DIScope } from "./di_container.js";
 
 export interface ICanTriggerAsync {
   triggerNoStaticTypeCheck(
