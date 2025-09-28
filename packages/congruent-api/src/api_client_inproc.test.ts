@@ -2,7 +2,7 @@ import { expect, test, describe } from 'vitest';
 import z from "zod";
 
 import { createInProcApiClient, HttpStatusCode, createRegistry, apiContract, endpoint, response, route, middleware } from "./index.js";
-import { DIContainer } from './di_container_2.js';
+import { DIContainer } from './di_container.js';
 
 
 describe('api_client_inproc', () => {

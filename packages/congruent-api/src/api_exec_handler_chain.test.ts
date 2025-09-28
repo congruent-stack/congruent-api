@@ -5,15 +5,15 @@ import { endpoint } from './http_method_endpoint';
 import { HttpStatusCode } from './http_status_code';
 import { response } from './http_method_endpoint_response';
 import { middleware } from './api_middleware';
-import { DIContainer } from './di_container_2';
+import { DIContainer } from './di_container';
 import { createRegistry } from './api_handlers_registry';
 import { route } from './api_routing';
-import { execMiddleware } from './api_middleware_exec';
+import { execHandlerChain } from './api_exec_handler_chain';
 import { ICanTriggerAsync } from './api_can_trigger';
 
-describe('api_middleware_exec', () => {
+describe('api_exec_handler_chain', () => {
 
-  test('test-1', async () => {
+  test('execution order', async () => {
     const contract = apiContract({
       some: {
         path: {
@@ -107,7 +107,7 @@ describe('api_middleware_exec', () => {
     if (!routeEntry1.handler) {
       throw new Error('Route entry 1 has no handler');
     }
-    const reqResponse1: any = await execMiddleware(diScope1, [...mwHandlerEntries, routeEntry1], {
+    const reqResponse1: any = await execHandlerChain(diScope1, [...mwHandlerEntries, routeEntry1], {
       method: 'GET',
       genericPath: '/some/path/:someparam',
       headers: {},
@@ -135,7 +135,7 @@ describe('api_middleware_exec', () => {
     if (!routeEntry2.handler) {
       throw new Error('Route entry 2 has no handler');
     }
-    const reqResponse2: any = await execMiddleware(diScope2, [...mwHandlerEntries, routeEntry2], {
+    const reqResponse2: any = await execHandlerChain(diScope2, [...mwHandlerEntries, routeEntry2], {
       method: 'GET',
       genericPath: genericPath2,
       headers: {},
@@ -153,5 +153,70 @@ describe('api_middleware_exec', () => {
     expect(items2).toBeDefined();
     expect(items2.length).toBe(2);
     expect(items2).toEqual(['mw-3', 'h-2']);
+  });
+
+  test('thrown error in handler', async () => {
+    const contract = apiContract({
+      somepath: {
+        POST: endpoint({
+          body: z.object({
+            name: z.string(),
+          }),
+          responses: {
+            [HttpStatusCode.OK_200]: response({ body: z.string() }),
+          }
+        }),
+      }
+    });
+
+    const container = new DIContainer();
+
+    const mwHandlerEntries: ICanTriggerAsync[] = [];
+    const apiReg = createRegistry(container, contract, {
+      handlerRegisteredCallback: (_entry) => {},
+      middlewareHandlerRegisteredCallback: (entry) => mwHandlerEntries.push(entry),
+    });
+
+    middleware(apiReg, '')
+      .register({ 
+        responses: {
+          [HttpStatusCode.InternalServerError_500]: response({ body: z.string() }),
+        } 
+      }, async (_req, next) => {
+        try {
+          await next();
+        } catch (err) {
+          return { 
+            code: HttpStatusCode.InternalServerError_500, 
+            body: 'internal server error' 
+          };
+        }
+      });
+
+    route(apiReg, 'POST /somepath')
+      .register(async (_req) => {
+        throw new Error('some error');
+      });
+
+    const diScope = container.createScope();
+
+    const routeEntry = route(apiReg, `POST /somepath`);
+    if (!routeEntry.handler) {
+      throw new Error('Route entry 1 has no handler');
+    }
+    const reqResponse: any = await execHandlerChain(diScope, [...mwHandlerEntries, routeEntry], {
+      method: 'POST',
+      genericPath: '/somepath',
+      headers: {},
+      pathParams: {},
+      query: null,
+      body: { name: 'some-name' },
+      path: '/somepath',
+      pathSegments: ['somepath'],
+    });
+
+    expect(reqResponse).toBeDefined();
+    expect(reqResponse.code).toBe(HttpStatusCode.InternalServerError_500);
+    expect(reqResponse.body).toBe('internal server error');
   });
 });
