@@ -2,10 +2,11 @@ import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { DIContainer, DIScope } from "./di_container.js";
 import { HttpMethodEndpoint, IHttpMethodEndpointDefinition, ValidateHttpMethodEndpointDefinition } from "./http_method_endpoint.js";
 import { HttpMethodEndpointHandler } from "./http_method_endpoint_handler.js";
-import { HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
+import { BadRequestValidationErrorResponse, HttpMethodEndpointHandlerOutput, HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
 import { HttpStatusCode } from "./http_status_code.js";
 import z from "zod";
 import { TypedPathParams } from "./typed_path_params.js";
+import { DecoratorHandlerSchemas, IEndpointHandlerDecorator, IEndpointHandlerDecoratorConstructor } from "./endpoint_handler_decorator.js";
 
 export type PrepareRegistryEntryCallback<
   TDef extends IHttpMethodEndpointDefinition & ValidateHttpMethodEndpointDefinition<TDef>,
@@ -18,6 +19,11 @@ export type OnHandlerRegisteredCallback<
   TDIContainer extends DIContainer,
   TPathParams extends string
 > = (entry: MethodEndpointHandlerRegistryEntry<TDef, TDIContainer, TPathParams, any>) => void;
+
+// type DecoratorConstructor<
+//   TDIContainer extends DIContainer,
+//   T extends IEndpointHandlerDecorator
+// > = (/*new*/ (scope: ReturnType<TDIContainer['createScope']>) => T);
 
 export class MethodEndpointHandlerRegistryEntry<
   TDef extends IHttpMethodEndpointDefinition & ValidateHttpMethodEndpointDefinition<TDef>,
@@ -49,11 +55,12 @@ export class MethodEndpointHandlerRegistryEntry<
     return this._handler;
   }
 
-  register(handler: HttpMethodEndpointHandler<TDef, TPathParams, TInjected>): void {
+  register(handler: HttpMethodEndpointHandler<TDef, TPathParams, TInjected>): this {
     this._handler = handler;
     if (this._onHandlerRegisteredCallback) {
       this._onHandlerRegisteredCallback(this);
     }
+    return this;
   }
 
   private _onHandlerRegisteredCallback: OnHandlerRegisteredCallback<TDef, TDIContainer, TPathParams> | null = null;
@@ -76,6 +83,44 @@ export class MethodEndpointHandlerRegistryEntry<
     return this as unknown as MethodEndpointHandlerRegistryEntry<TDef, TDIContainer, TPathParams, TNewInjected>;
   }
 
+  private readonly _decoratorConstructors: IEndpointHandlerDecoratorConstructor<any, TDIContainer, any>[] = [];
+  public get decoratorConstructors(): IEndpointHandlerDecoratorConstructor<any, TDIContainer, any>[] {
+    return this._decoratorConstructors;
+  }
+
+  decorate<
+    TDecoratorSchemas extends DecoratorHandlerSchemas, 
+    T extends IEndpointHandlerDecorator<TDecoratorSchemas>
+  > (
+    Decorator: IEndpointHandlerDecoratorConstructor<TDecoratorSchemas, TDIContainer, T>
+  ): this {
+    this._decoratorConstructors.push(Decorator);
+    return this;
+  }
+
+  // POSSIBLE SOLUTION (*)
+  // comment the above decorate method and uncomment the below overloads and implementation
+  // this solution problem: create method signature is not enforced anymore, only that is present
+
+  // // Simple overload that accepts any decorator constructor that follows the pattern
+  // decorate(
+  //   Decorator: IEndpointHandlerDecoratorConstructor<any, TDIContainer, any>
+  // ): this;
+  
+  // // Explicit generic version for cases where you want full type checking
+  // decorate<
+  //   TDecoratorSchemas extends DecoratorHandlerSchemas, 
+  //   T extends IEndpointHandlerDecorator<TDecoratorSchemas>
+  // > (
+  //   Decorator: IEndpointHandlerDecoratorConstructor<TDecoratorSchemas, TDIContainer, T>
+  // ): this;
+  
+  // // Implementation
+  // decorate(Decorator: any): this {
+  //   this._decoratorConstructors.push(Decorator);
+  //   return this;
+  // }
+
   async trigger(
     diScope: ReturnType<TDIContainer['createScope']>,
     requestObject: { 
@@ -86,6 +131,54 @@ export class MethodEndpointHandlerRegistryEntry<
     }
   ): Promise<any> {
     return this.triggerNoStaticTypeCheck(diScope, requestObject as any);
+  }
+
+  async exec(
+    injected: TInjected,
+    requestObject: { 
+      headers: TDef['headers'] extends z.ZodType ? z.output<TDef['headers']> : Record<string, string>; // z.output because the handler receives the parsed input
+      pathParams: TypedPathParams<TPathParams>;
+      query: TDef['query'] extends z.ZodType ? z.output<TDef['query']> : null; // z.output because the handler receives the parsed input
+      body: TDef['body'] extends z.ZodType ? z.output<TDef['body']> : null; // z.output because the handler receives the parsed input
+    }
+  ): Promise<HttpMethodEndpointHandlerOutput<TDef> | BadRequestValidationErrorResponse> {
+    if (!this._handler) {
+      throw new Error('Handler not set for this endpoint');
+    }
+
+    let badRequestResponse: HttpResponseObject | null = null;
+
+    const headers = parseRequestDefinitionField(this._methodEndpoint.definition, 'headers', requestObject);
+    if (isHttpResponseObject(headers)) {
+      badRequestResponse = headers;
+      return badRequestResponse as any;
+    }
+
+    const query = parseRequestDefinitionField(this._methodEndpoint.definition, 'query', requestObject);
+    if (isHttpResponseObject(query)) {
+      badRequestResponse = query;
+      return badRequestResponse as any;
+    }
+
+    const body = parseRequestDefinitionField(this._methodEndpoint.definition, 'body', requestObject);
+    if (isHttpResponseObject(body)) {
+      badRequestResponse = body;
+      return badRequestResponse as any;
+    }
+
+    const path = this.createPath(requestObject.pathParams);
+
+    return await this._handler({ 
+      method: this._methodEndpoint.method,
+      path,
+      genericPath: this._methodEndpoint.genericPath,
+      pathSegments: this._methodEndpoint.pathSegments,
+      headers,
+      pathParams: requestObject.pathParams as any, 
+      query,
+      body,
+      injected,
+    }) as any;
   }
 
   async triggerNoStaticTypeCheck(
@@ -121,11 +214,7 @@ export class MethodEndpointHandlerRegistryEntry<
       return badRequestResponse;
     }
 
-    const path = `/${this._methodEndpoint.pathSegments.map(segment => 
-      segment.startsWith(':') 
-      ? (requestObject.pathParams[segment.slice(1)] ?? '?') 
-      : segment
-    ).join('/')}`;
+    const path = this.createPath(requestObject.pathParams);
 
     return await this._handler({ 
       method: this._methodEndpoint.method,
@@ -138,6 +227,14 @@ export class MethodEndpointHandlerRegistryEntry<
       body,
       injected: this._injection(diScope),
     });
+  }
+
+  private createPath(pathParams: Record<string, string>): string {
+    return `/${this._methodEndpoint.pathSegments.map(segment => 
+      segment.startsWith(':') 
+      ? (pathParams[segment.slice(1)] ?? '?') 
+      : segment
+    ).join('/')}`;
   }
 }
 

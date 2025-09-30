@@ -60,12 +60,12 @@ export type MiddlewareHandler<
   TInjected
 > = (
   input: MiddlewareHandlerInput<TPathParams, TMiddlewareSchemas, TInjected>,
-  next: () => void
+  next: () => Promise<void>
 ) => Promise<MiddlewareHandlerOutput<TMiddlewareSchemas>>;
 
 export type MiddlewareHandlerInternal<TInjected> = (
   input: MiddlewareHandlerInputInternal<TInjected>,
-  next: () => void
+  next: () => Promise<void>
 ) => Promise<HttpResponseObject | void>;
 
 export function middleware<

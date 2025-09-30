@@ -51,6 +51,11 @@ export type HttpResponseObject = {
   body?: any;
 }
 
+export type BadRequestValidationErrorResponse = {
+  code: HttpStatusCode.BadRequest_400;
+  body: z.core.$ZodIssue[] | string; // string for generic errors (e.g. invalid JSON)
+}
+
 export function isHttpResponseObject(obj: any): obj is HttpResponseObject {
   return (
     obj !== null

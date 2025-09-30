@@ -2,13 +2,13 @@ import { describe, test, expect } from "vitest";
 import z from "zod";
 import express from "express";
 import request from "supertest";
-import { apiContract, createInProcApiClient, createRegistry, DIContainer, endpoint, HttpStatusCode, middleware, response, route } from "@congruent-stack/congruent-api";
+import { apiContract, createInProcApiClient, createRegistry, DecoratorHandlerInput, DecoratorHandlerSchemas, DIContainer, endpoint, HttpStatusCode, IEndpointHandlerDecorator, middleware, response, route } from "@congruent-stack/congruent-api";
 import { createExpressRegistry } from "@congruent-stack/congruent-api-express";
 import { createFetchClient } from "@congruent-stack/congruent-api-fetch";
 import type { AddressInfo } from "node:net";
 
 describe("Express middleware execution order", () => {
-  const RES_1_ITEMS = ['mw-1', 'mw-2', 'mw-3', 'mw-4', 'h-1'];
+  const RES_1_ITEMS = ['mw-1', 'mw-2', 'mw-3', 'mw-4', 'dec-1', 'h-1'];
   const RES_2_ITEMS = ['mw-3', 'h-2'];
 
   test('test-1-bare-express', async () => {
@@ -40,10 +40,16 @@ describe("Express middleware execution order", () => {
       await next();
     });
 
-    app.get('/some/path/:someparam', (req, res) => {
-      res.locals.items.push("h-1");
-      res.status(200).set('x-items', JSON.stringify(res.locals.items)).json(req.params['someparam']);
-    });
+    app.get(
+      '/some/path/:someparam', 
+      (_req, res, next) => {
+        res.locals.items.push("dec-1");
+        next();
+      },
+      (req, res) => {
+        res.locals.items.push("h-1");
+        res.status(200).set('x-items', JSON.stringify(res.locals.items)).json(req.params['someparam']);
+      });
 
     app.get('/some/other/path', (_req, res) => {
       res.locals.items.push("h-2");
@@ -138,7 +144,28 @@ describe("Express middleware execution order", () => {
         await next();
       });
 
+    class MyDecoratorSchemas implements DecoratorHandlerSchemas {
+      responses = {};
+    }
+
+    class MyDecorator implements IEndpointHandlerDecorator<MyDecoratorSchemas> {
+      static create(diScope: ReturnType<typeof container.createScope>): MyDecorator {
+        return new MyDecorator(diScope.getItems());
+      }
+
+      private _items: string[];
+      constructor(items: string[]) {
+        this._items = items;
+      }
+      
+      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
+        this._items.push('dec-1');
+        await next();
+      }
+    }
+
     route(apiReg, 'GET /some/path/:someparam')
+      .decorate(MyDecorator)
       .inject((scope) => ({
         items: scope.getItems()
       }))
@@ -259,7 +286,28 @@ describe("Express middleware execution order", () => {
         await next();
       });
 
+    class MyDecoratorSchemas implements DecoratorHandlerSchemas {
+      responses = {};
+    }
+
+    class MyDecorator implements IEndpointHandlerDecorator<MyDecoratorSchemas> {
+      static create(diScope: ReturnType<typeof container.createScope>): MyDecorator {
+        return new MyDecorator(diScope.getItems());
+      }
+
+      private _items: string[];
+      constructor(items: string[]) {
+        this._items = items;
+      }
+      
+      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
+        this._items.push('dec-1');
+        await next();
+      }
+    }
+
     route(apiReg, 'GET /some/path/:someparam')
+      .decorate(MyDecorator)
       .inject((scope) => ({
         items: scope.getItems()
       }))
@@ -392,7 +440,28 @@ describe("Express middleware execution order", () => {
         await next();
       });
 
+    class MyDecoratorSchemas implements DecoratorHandlerSchemas {
+      responses = {};
+    }
+
+    class MyDecorator implements IEndpointHandlerDecorator<MyDecoratorSchemas> {
+      static create(diScope: ReturnType<typeof container.createScope>): MyDecorator {
+        return new MyDecorator(diScope.getItems());
+      }
+
+      private _items: string[];
+      constructor(items: string[]) {
+        this._items = items;
+      }
+      
+      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
+        this._items.push('dec-1');
+        await next();
+      }
+    }
+
     route(apiReg, 'GET /some/path/:someparam')
+      .decorate(MyDecorator)
       .inject((scope) => ({
         items: scope.getItems()
       }))
@@ -401,7 +470,7 @@ describe("Express middleware execution order", () => {
         return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: req.pathParams['someparam'] };
       });
 
-    route(apiReg, 'GET /some/other/path')
+    const someOtherPathRoute = route(apiReg, 'GET /some/other/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
@@ -457,7 +526,7 @@ describe("Express middleware execution order", () => {
     expect(inProcClientItems2).toEqual(RES_2_ITEMS);
 
     const directResult = await route(apiReg, 'GET /some/other/path').triggerNoStaticTypeCheck(
-      container.createScope(), 
+      testContainer.createScope(), 
       {
         headers: {}, 
         pathParams: {}, 
@@ -467,7 +536,7 @@ describe("Express middleware execution order", () => {
     expect(directResult.code).toBe(HttpStatusCode.OK_200);
 
     const directResult2 = await route(apiReg, 'GET /some/other/path').trigger(
-      container.createScope(), 
+      testContainer.createScope(), 
       {
         headers: {}, 
         pathParams: {}, 
@@ -476,6 +545,23 @@ describe("Express middleware execution order", () => {
       }
     );
     expect(directResult2.code).toBe(HttpStatusCode.OK_200);
+
+    const directResult3 = await someOtherPathRoute.exec(
+      {
+        items: []
+      }, 
+      {
+        headers: {}, 
+        pathParams: {}, 
+        query: null,
+        body: null
+      }
+    );
+    if (directResult3.code !== HttpStatusCode.OK_200) {
+      expect.fail('Expected OK_200 response');
+    }
+    expect(directResult3.body).toBe('some-other-path');
+    expect(JSON.parse(directResult3.headers['x-items'])).toEqual(['h-2']);
 
     server.close();
   });

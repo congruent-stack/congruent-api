@@ -1,15 +1,16 @@
 import { expect, test, describe } from 'vitest';
 import z from 'zod';
 import { apiContract } from './api_contract';
-import { endpoint } from './http_method_endpoint';
+import { endpoint, HttpMethodEndpointResponses } from './http_method_endpoint';
 import { HttpStatusCode } from './http_status_code';
-import { response } from './http_method_endpoint_response';
+import { HttpMethodEndpointResponse, response } from './http_method_endpoint_response';
 import { middleware } from './api_middleware';
 import { DIContainer } from './di_container';
 import { createRegistry } from './api_handlers_registry';
 import { route } from './api_routing';
 import { execHandlerChain } from './api_exec_handler_chain';
 import { ICanTriggerAsync } from './api_can_trigger';
+import { DecoratorHandlerInput, DecoratorHandlerSchemas, IEndpointHandlerDecorator } from './endpoint_handler_decorator';
 
 describe('api_exec_handler_chain', () => {
 
@@ -82,7 +83,28 @@ describe('api_exec_handler_chain', () => {
         await next();
       });
 
+    class MyDecoratorSchemas implements DecoratorHandlerSchemas {
+      responses = {};
+    }
+
+    class MyDecorator implements IEndpointHandlerDecorator<MyDecoratorSchemas> {
+      static create(diScope: ReturnType<typeof container.createScope>): MyDecorator {
+        return new MyDecorator(diScope.getItems());
+      }
+
+      private _items: string[];
+      constructor(items: string[]) {
+        this._items = items;
+      }
+      
+      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
+        this._items.push('dec-1');
+        await next();
+      }
+    }
+
     route(apiReg, 'GET /some/path/:someparam')
+      .decorate(MyDecorator)
       .inject((scope) => ({
         items: scope.getItems()
       }))

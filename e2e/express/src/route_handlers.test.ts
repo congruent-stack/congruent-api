@@ -10,7 +10,11 @@ import {
   middleware, 
   response, 
   route,
-  createInProcApiClient
+  createInProcApiClient,
+  DecoratorHandlerSchemas,
+  IEndpointHandlerDecorator,
+  DecoratorHandlerInput,
+  DecoratorHandlerOutput
 } from '@congruent-stack/congruent-api';
 import { createExpressRegistry } from '@congruent-stack/congruent-api-express';
 import { createFetchClient } from '@congruent-stack/congruent-api-fetch';
@@ -19,6 +23,7 @@ describe('api_client', () => {
   interface ISessionUser {
     id: string;
     name: string;
+    roles: string[];
   }
 
   interface ISessionUserProvider {
@@ -42,10 +47,15 @@ describe('api_client', () => {
       if (sessionToken !== 'valid-token') {
         return 'Invalid session token';
       }
-      this._user = { id: '123', name: 'Real John Doe' };
+      this._user = { id: '123', name: 'Real John Doe', roles: [] };
       return null;
     }
   }
+
+  const MissingRolesForbiddenResponseBodySchema = z.object({
+    requiredRoles: z.array(z.string())
+  });
+
   const contract = apiContract({
     api: {
       foo: {
@@ -64,6 +74,22 @@ describe('api_client', () => {
                   baz: z.string()
                 })
               }),
+            }
+          })
+        }
+      },
+      admin: {
+        dashboard: {
+          GET: endpoint({
+            responses: {
+              [HttpStatusCode.Forbidden_403]: response({
+                body: MissingRolesForbiddenResponseBodySchema
+              }),
+              [HttpStatusCode.OK_200]: response({
+                body: z.object({
+                  message: z.string()
+                })
+              })
             }
           })
         }
@@ -117,10 +143,54 @@ describe('api_client', () => {
       };
     });
 
+  class EnforceAdminDecoratorSchemas implements DecoratorHandlerSchemas {
+    responses = {
+      [HttpStatusCode.Forbidden_403]: response({
+        body: MissingRolesForbiddenResponseBodySchema
+      }),
+    };
+  }
+
+  class EnforceAdminDecorator implements IEndpointHandlerDecorator<EnforceAdminDecoratorSchemas> {
+    static create(diScope: ReturnType<typeof container.createScope>): EnforceAdminDecorator {
+      return new EnforceAdminDecorator(diScope.getSessionUserProvider());
+    }
+
+    private _sessionUser: ISessionUserProvider;
+    constructor(sessionUser: ISessionUserProvider) {
+      this._sessionUser = sessionUser;
+    }
+    
+    async handle(req: DecoratorHandlerInput<EnforceAdminDecoratorSchemas>, next: () => Promise<void>): Promise<DecoratorHandlerOutput<EnforceAdminDecoratorSchemas>> {
+      if (!this._sessionUser.current.roles.includes('admin')) {
+        return {
+          code: HttpStatusCode.Forbidden_403,
+          body: { requiredRoles: ['admin'] }
+        };
+      }
+      await next();
+    }
+  }
+
+  route(apiReg, 'GET /api/admin/dashboard')
+    // TODO: search for POSSIBLE SOLUTION (*) in api_handlers_registry_entry.ts
+    .decorate<EnforceAdminDecoratorSchemas, EnforceAdminDecorator>(EnforceAdminDecorator)
+    .inject(scope => ({
+      sessionUser: scope.getSessionUserProvider()
+    }))
+    .register(async (_req) => {
+      return {
+        code: HttpStatusCode.OK_200,
+        body: {
+          message: 'Welcome to the admin dashboard'
+        }
+      };
+    });
+
   test('Example of route handler unit testing using direct triggers', async () => {
     const testContainer = container.createTestClone()
       .override('SessionUserProvider', () => ({
-        get current() { return { id: '456', name: 'Test John Doe' }; }
+        get current() { return { id: '456', name: 'Test John Doe', roles: [] }; }
       }));
     
     const response1 = await apiReg.api.foo[':someParam'].POST.trigger(
@@ -161,7 +231,7 @@ describe('api_client', () => {
   test('Example of route handler unit testing using inproc api client', async () => {
     const testContainer = container.createTestClone()
       .override('SessionUserProvider', () => ({
-        get current() { return { id: '456', name: 'Test John Doe' }; }
+        get current() { return { id: '456', name: 'Test John Doe', roles: [] }; }
       }));
 
     const inProcClient1 = createInProcApiClient(contract, testContainer, apiReg, {
@@ -182,7 +252,7 @@ describe('api_client', () => {
     const testContainerMiddlewareIncluded = container.createTestClone()
       .override('SessionUserSvc', () => ({
         get current(): ISessionUser {
-          return { id: '999', name: 'Fake John Doe' };
+          return { id: '999', name: 'Fake John Doe', roles: [] };
         },
         async loginAsync(_sessionToken: string) { return null; }
       }))
@@ -271,5 +341,35 @@ describe('api_client', () => {
     expect(response3.body).toEqual({ message: 'Invalid session token' });
 
     server.close();
+  });
+
+  test('Test admin decorator - should block non-admin users', async () => {
+    const testContainer = container.createTestClone()
+      .override('SessionUserProvider', () => ({
+        get current() { return { id: '456', name: 'Test John Doe', roles: [] }; }
+      }));
+
+    const inProcClient = createInProcApiClient(contract, testContainer, apiReg, {
+      filterMiddleware: (path, _) => false // skip all middleware for this test
+    });
+    
+    const response = await inProcClient.api.admin.dashboard.GET();
+    expect(response.code).toBe(HttpStatusCode.Forbidden_403);
+    expect(response.body).toEqual({ requiredRoles: ['admin'] });
+  });
+
+  test('Test admin decorator - should allow admin users', async () => {
+    const testContainer = container.createTestClone()
+      .override('SessionUserProvider', () => ({
+        get current() { return { id: '456', name: 'Test Admin User', roles: ['admin'] }; }
+      }));
+
+    const inProcClient = createInProcApiClient(contract, testContainer, apiReg, {
+      filterMiddleware: (path, _) => false // skip all middleware for this test
+    });
+    
+    const response = await inProcClient.api.admin.dashboard.GET();
+    expect(response.code).toBe(HttpStatusCode.OK_200);
+    expect(response.body).toEqual({ message: 'Welcome to the admin dashboard' });
   });
 });
