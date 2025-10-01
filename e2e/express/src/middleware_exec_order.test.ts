@@ -165,7 +165,7 @@ describe("Express middleware execution order", () => {
     }
 
     route(apiReg, 'GET /some/path/:someparam')
-      .decorate(MyDecorator)
+      .decorate(MyDecorator.create)
       .inject((scope) => ({
         items: scope.getItems()
       }))
@@ -291,10 +291,6 @@ describe("Express middleware execution order", () => {
     }
 
     class MyDecorator implements IEndpointHandlerDecorator<MyDecoratorSchemas> {
-      static create(diScope: ReturnType<typeof container.createScope>): MyDecorator {
-        return new MyDecorator(diScope.getItems());
-      }
-
       private _items: string[];
       constructor(items: string[]) {
         this._items = items;
@@ -307,7 +303,7 @@ describe("Express middleware execution order", () => {
     }
 
     route(apiReg, 'GET /some/path/:someparam')
-      .decorate(MyDecorator)
+      .decorate((scope) => new MyDecorator(scope.getItems()))
       .inject((scope) => ({
         items: scope.getItems()
       }))
@@ -461,7 +457,7 @@ describe("Express middleware execution order", () => {
     }
 
     route(apiReg, 'GET /some/path/:someparam')
-      .decorate(MyDecorator)
+      .decorate(MyDecorator.create)
       .inject((scope) => ({
         items: scope.getItems()
       }))

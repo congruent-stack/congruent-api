@@ -14,7 +14,8 @@ import {
   DecoratorHandlerSchemas,
   IEndpointHandlerDecorator,
   DecoratorHandlerInput,
-  DecoratorHandlerOutput
+  DecoratorHandlerOutput,
+  // decoratorFactory
 } from '@congruent-stack/congruent-api';
 import { createExpressRegistry } from '@congruent-stack/congruent-api-express';
 import { createFetchClient } from '@congruent-stack/congruent-api-fetch';
@@ -172,9 +173,68 @@ describe('api_client', () => {
     }
   }
 
+
+  class BadCreateSignatureDecoratorSchemas implements DecoratorHandlerSchemas {
+    // query = z.object({
+    //   unused: z.string()
+    // });
+    responses = {
+      // commenting out will remove the compile error with ".decorate(BadCreateSignatureDecorator)"
+      [HttpStatusCode.Forbidden_403]: response({
+        body: MissingRolesForbiddenResponseBodySchema
+      }),
+    };
+  }
+
+  class BadCreateSignatureDecorator implements IEndpointHandlerDecorator<BadCreateSignatureDecoratorSchemas> {
+    static create(x: string): BadCreateSignatureDecorator {
+      return new BadCreateSignatureDecorator();
+    }
+
+    async handle(input: DecoratorHandlerInput<BadCreateSignatureDecoratorSchemas>, next: () => Promise<void>): Promise<DecoratorHandlerOutput<BadCreateSignatureDecoratorSchemas>> {
+      await next();
+    }
+  }
+
+  class  BadSecondDecoratorSchemas implements DecoratorHandlerSchemas {
+    // query = z.object({
+    //   unused: z.string()
+    // });
+    responses = {
+      // commenting out will remove the compile error with ".decorate(BadCreateSignatureDecorator)"
+      [HttpStatusCode.Forbidden_403]: response({
+        body: MissingRolesForbiddenResponseBodySchema
+      }),
+    };
+  }
+
+  class BadSecondDecorator { // NOT implements IEndpointHandlerDecorator<BadSecondDecoratorSchemas>
+    static create(scope: ReturnType<typeof container.createScope>): BadSecondDecorator {
+      return new BadSecondDecorator();
+    }
+
+    async handle(input: string, next: () => Promise<void>): Promise<number> {
+      await next();
+      return 42;
+    }
+  }
+
   route(apiReg, 'GET /api/admin/dashboard')
-    // TODO: search for POSSIBLE SOLUTION (*) in api_handlers_registry_entry.ts
-    .decorate<EnforceAdminDecoratorSchemas, EnforceAdminDecorator>(EnforceAdminDecorator)
+    // ✅ SOLUTION: Automatic schema inference AND strict parameter type checking!
+    .decorate(EnforceAdminDecorator.create)
+    
+    // ❌ Uncommenting these correctly causes compile errors:
+    
+    // Error: Types of parameters 'x' and 'diScope' are incompatible
+    .decorate(BadCreateSignatureDecorator.create)
+    .decorate(scope => new BadCreateSignatureDecorator()) 
+    
+    // Error: Types of parameters 'input' and 'input' are incompatible
+    // (handle method has wrong signature: string instead of DecoratorHandlerInput)
+    .decorate(BadSecondDecorator.create)
+
+    .decorate(scope => new BadSecondDecorator()) 
+    
     .inject(scope => ({
       sessionUser: scope.getSessionUserProvider()
     }))

@@ -6,7 +6,7 @@ import { BadRequestValidationErrorResponse, HttpMethodEndpointHandlerOutput, Htt
 import { HttpStatusCode } from "./http_status_code.js";
 import z from "zod";
 import { TypedPathParams } from "./typed_path_params.js";
-import { DecoratorHandlerSchemas, IEndpointHandlerDecorator, IEndpointHandlerDecoratorConstructor } from "./endpoint_handler_decorator.js";
+import { DecoratorHandlerSchemas, IEndpointHandlerDecorator, EndpointHandlerDecoratorFactory, DecoratorHandlerInput, DecoratorHandlerOutput } from "./endpoint_handler_decorator.js";
 
 export type PrepareRegistryEntryCallback<
   TDef extends IHttpMethodEndpointDefinition & ValidateHttpMethodEndpointDefinition<TDef>,
@@ -83,43 +83,66 @@ export class MethodEndpointHandlerRegistryEntry<
     return this as unknown as MethodEndpointHandlerRegistryEntry<TDef, TDIContainer, TPathParams, TNewInjected>;
   }
 
-  private readonly _decoratorConstructors: IEndpointHandlerDecoratorConstructor<any, TDIContainer, any>[] = [];
-  public get decoratorConstructors(): IEndpointHandlerDecoratorConstructor<any, TDIContainer, any>[] {
-    return this._decoratorConstructors;
+  private readonly _decoratorFactories: EndpointHandlerDecoratorFactory<any, TDIContainer, any>[] = [];
+  public get decoratorFactories(): EndpointHandlerDecoratorFactory<any, TDIContainer, any>[] {
+    return this._decoratorFactories;
   }
 
-  decorate<
-    TDecoratorSchemas extends DecoratorHandlerSchemas, 
-    T extends IEndpointHandlerDecorator<TDecoratorSchemas>
-  > (
-    Decorator: IEndpointHandlerDecoratorConstructor<TDecoratorSchemas, TDIContainer, T>
-  ): this {
-    this._decoratorConstructors.push(Decorator);
-    return this;
-  }
-
-  // POSSIBLE SOLUTION (*)
-  // comment the above decorate method and uncomment the below overloads and implementation
-  // this solution problem: create method signature is not enforced anymore, only that is present
-
-  // // Simple overload that accepts any decorator constructor that follows the pattern
-  // decorate(
-  //   Decorator: IEndpointHandlerDecoratorConstructor<any, TDIContainer, any>
-  // ): this;
-  
-  // // Explicit generic version for cases where you want full type checking
+  /**
+   * Register a decorator for this endpoint handler.
+   * The decorator's schema type is automatically inferred from the return type of the factory function.
+   * 
+   * @param decoratorFactory - A function that takes a DI scope and returns a decorator instance
+   *                           that implements IEndpointHandlerDecorator.
+   *                           MUST accept exactly one parameter of type DIScope.
+   * 
+   * Compile-time validations:
+   * - ✅ Validates parameter count (must be exactly 1)
+   * - ✅ Validates parameter type (must be DIScope)
+   * - ✅ Validates return type has correct handle method signature
+   * - ✅ Automatic schema type inference from decorator
+   * 
+   * @returns this registry entry for chaining
+   * 
+   * @example
+   * ```typescript
+   * route(registry, 'GET /api/admin/dashboard')
+   *   .decorate(EnforceAdminDecorator.create)  // ✅ Schema type automatically inferred
+   *   .register(...)
+   * ```
+   */
   // decorate<
-  //   TDecoratorSchemas extends DecoratorHandlerSchemas, 
-  //   T extends IEndpointHandlerDecorator<TDecoratorSchemas>
+  //   TDecorator extends {
+  //     handle(
+  //       input: DecoratorHandlerInput<any>,
+  //       next: () => Promise<void>
+  //     ): Promise<any>
+  //   }
   // > (
-  //   Decorator: IEndpointHandlerDecoratorConstructor<TDecoratorSchemas, TDIContainer, T>
-  // ): this;
-  
-  // // Implementation
-  // decorate(Decorator: any): this {
-  //   this._decoratorConstructors.push(Decorator);
+  //   decoratorFactory:
+  //     // Must be a function that takes exactly the DI scope type
+  //     ((diScope: ReturnType<TDIContainer['createScope']>) => TDecorator) extends infer TExpected
+  //       ? TExpected
+  //       : never
+  // ): this {
+  //   this._decoratorFactories.push(decoratorFactory as any);
   //   return this;
   // }
+
+  decorate<
+    TDecorator extends { handle(input: any, next: any): Promise<any> }
+  > (
+    decoratorFactory:
+      // Must be a function that takes exactly the DI scope type
+      ((diScope: ReturnType<TDIContainer['createScope']>) => TDecorator) extends infer TExpected
+        ? TDecorator extends IEndpointHandlerDecorator<infer _TSchemas>
+          ? TExpected
+          : "❌ ERROR: The decoratorFactory must return an instance of a class that implements IEndpointHandlerDecorator"
+        : never
+  ): this {
+    this._decoratorFactories.push(decoratorFactory as any);
+    return this;
+  }
 
   async trigger(
     diScope: ReturnType<TDIContainer['createScope']>,

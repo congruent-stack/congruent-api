@@ -96,7 +96,7 @@ describe('api_exec_handler_chain', () => {
       constructor(items: string[]) {
         this._items = items;
       }
-      
+
       async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
         this._items.push('dec-1');
         await next();
@@ -104,7 +104,7 @@ describe('api_exec_handler_chain', () => {
     }
 
     route(apiReg, 'GET /some/path/:someparam')
-      .decorate(MyDecorator)
+      .decorate((scope) => new MyDecorator(scope.getItems()))
       .inject((scope) => ({
         items: scope.getItems()
       }))

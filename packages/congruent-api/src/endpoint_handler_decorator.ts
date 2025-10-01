@@ -38,14 +38,74 @@ export type DecoratorHandlerOutput<TDecoratorSchemas extends DecoratorHandlerSch
 export interface IEndpointHandlerDecorator<
   TDecoratorSchemas extends DecoratorHandlerSchemas
 > {
-  handle(input: DecoratorHandlerInput<TDecoratorSchemas>, next: () => Promise<void>): Promise<DecoratorHandlerOutput<TDecoratorSchemas>>;
+  handle(
+    input: DecoratorHandlerInput<TDecoratorSchemas>, 
+    next: () => Promise<void>
+  ): Promise<DecoratorHandlerOutput<TDecoratorSchemas>>;
 }
 
-export interface IEndpointHandlerDecoratorConstructor<
-  TDef extends DecoratorHandlerSchemas,
+// export interface IEndpointHandlerDecoratorConstructor<
+//   TDef extends DecoratorHandlerSchemas,
+//   TDIContainer extends DIContainer,
+//   T extends IEndpointHandlerDecorator<TDef>
+// > {
+//   new (...args: any[]): T;
+//   create(diScope: ReturnType<TDIContainer['createScope']>): T;
+// }
+
+export type EndpointHandlerDecoratorFactory<
+  TDecoratorSchemas extends DecoratorHandlerSchemas,
   TDIContainer extends DIContainer,
-  T extends IEndpointHandlerDecorator<TDef>
-> {
-  new (...args: any[]): T;
-  create(diScope: ReturnType<TDIContainer['createScope']>): T;
-}
+  TDecorator extends IEndpointHandlerDecorator<TDecoratorSchemas>
+> = (diScope: ReturnType<TDIContainer['createScope']>) => TDecorator;
+
+// /**
+//  * Helper type to extract the schema type from a decorator instance type
+//  */
+// export type ExtractDecoratorSchemas<T> = T extends IEndpointHandlerDecorator<infer TSchemas> ? TSchemas : never;
+
+// /**
+//  * Helper type to enforce strict parameter checking for decorator factories.
+//  * This type uses a method signature (not a function signature) to avoid bivariance issues.
+//  */
+// export type StrictDecoratorFactory<TDIScope, TDecorator> = {
+//   createDecorator(diScope: TDIScope): TDecorator;
+// }['createDecorator'];
+
+// /**
+//  * Helper type to check if a function has exactly one REQUIRED parameter
+//  * This checks that () => T does NOT match, but (arg) => T DOES match
+//  */
+// type HasExactlyOneParameter<T> = 
+//   T extends () => any 
+//     ? false  // Zero parameters - reject
+//     : T extends (arg: any) => any 
+//       ? true  // At least one parameter - accept
+//       : false;
+
+// /**
+//  * Helper function to create a properly typed decorator factory with strict parameter validation.
+//  * This enables automatic type inference of the schemas from the decorator class AND
+//  * enforces that the factory function has exactly one parameter.
+//  * 
+//  * @example
+//  * ```typescript
+//  * class MyDecorator implements IEndpointHandlerDecorator<MyDecoratorSchemas> {
+//  *   static create(diScope: DIScope<...>) { return new MyDecorator(...); }
+//  *   // ... implementation
+//  * }
+//  * 
+//  * // Usage with automatic type inference and parameter validation:
+//  * route(registry, 'GET /path')
+//  *   .decorate(decoratorFactory(MyDecorator.create))  // ✅ Validates parameter count
+//  * ```
+//  */
+// export function decoratorFactory<
+//   TFactory extends (...args: any[]) => any
+// >(
+//   factory: HasExactlyOneParameter<TFactory> extends true
+//     ? TFactory
+//     : { error: '❌ Decorator factory must accept exactly one parameter (diScope). Current factory has zero parameters.' }
+// ): TFactory {
+//   return factory as any;
+// }

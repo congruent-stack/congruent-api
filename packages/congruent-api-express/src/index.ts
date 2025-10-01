@@ -32,12 +32,12 @@ export function createExpressRegistry<
         throw new Error(`Unsupported HTTP method: ${method}`);
       }
       const routeHandlers: RequestHandler[] = [];
-      entry.decoratorConstructors.forEach(Decorator => {
+      entry.decoratorFactories.forEach(decoratorFactory => {
         routeHandlers.push(async (req, res, next) => {
           if (!res.locals.diScope) {
             res.locals.diScope = entry.dicontainer.createScope();
           }
-          const decorator = Decorator.create(res.locals.diScope);
+          const decorator = decoratorFactory(res.locals.diScope);
           const nextAsync = next as () => Promise<void>;
           const haltResult = await (decorator as any).handle(req, nextAsync);
           if (haltResult && isHttpResponseObject(haltResult)) {

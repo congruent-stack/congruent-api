@@ -54,11 +54,11 @@ export function createInProcApiClient<
     if (!endpointHandlerEntry.handler) {
       throw new Error(`No handler registered for ${input.method} ${input.genericPath}`);
     }
-    endpointHandlerEntry.decoratorConstructors.forEach((decCtor) => {
+    endpointHandlerEntry.decoratorFactories.forEach((decoratorFactory) => {
       allHandlerEntries.push({
         genericPath: endpointHandlerEntry.genericPath,
         triggerNoStaticTypeCheck: async (diScope: any, requestObject, next) => {
-          const decorator = decCtor.create(diScope);
+          const decorator = decoratorFactory(diScope);
           return decorator.handle(requestObject, next);
         }
       });
