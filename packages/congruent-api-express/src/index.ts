@@ -13,7 +13,8 @@ import {
   IHttpMethodEndpointDefinition,
   ValidateHttpMethodEndpointDefinition,
   DIContainer,
-  isHttpResponseObject
+  isHttpResponseObject,
+  triggerDecoratorNoStaticTypeCheck
 } from '@congruent-stack/congruent-api';
 
 export function createExpressRegistry<
@@ -37,9 +38,16 @@ export function createExpressRegistry<
           if (!res.locals.diScope) {
             res.locals.diScope = entry.dicontainer.createScope();
           }
-          const decorator = decoratorFactory(res.locals.diScope);
+          // @ts-ignore
+          req.pathParams = req.params;
           const nextAsync = next as () => Promise<void>;
-          const haltResult = await (decorator as any).handle(req, nextAsync);
+          const decorator = decoratorFactory(res.locals.diScope);
+          const haltResult = await triggerDecoratorNoStaticTypeCheck(
+            entry.methodEndpoint,
+            decorator,
+            req as any,
+            nextAsync
+          );
           if (haltResult && isHttpResponseObject(haltResult)) {
             const haltResultHeaders = new Map(
               Object.entries(haltResult.headers || {})
@@ -56,7 +64,10 @@ export function createExpressRegistry<
         }
         // @ts-ignore
         req.pathParams = req.params;
-        const result = await entry.trigger(res.locals.diScope, req as any);
+        const result = await entry.trigger(
+          res.locals.diScope, 
+          req as any
+        );
         const resultHeaders = new Map(
           Object.entries(result.headers || {})
         ) as Map<string, string | number | readonly string[]>;
@@ -65,23 +76,6 @@ export function createExpressRegistry<
           .json(result.body);
       });
       app[method](genericPath, ...routeHandlers);
-
-      //////////////////////////////////////////////////////////////////////////////
-      // app[method](genericPath, async (req, res) => {
-      //   if (!res.locals.diScope) {
-      //     res.locals.diScope = entry.dicontainer.createScope();
-      //   }
-      //   // @ts-ignore
-      //   req.pathParams = req.params;
-      //   const result = await entry.trigger(res.locals.diScope, req as any);
-      //   const resultHeaders = new Map(
-      //     Object.entries(result.headers || {})
-      //   ) as Map<string, string | number | readonly string[]>;
-      //   res.status(result.code)
-      //     .setHeaders(resultHeaders)
-      //     .json(result.body);
-      // });
-      //////////////////////////////////////////////////////////////////////////////
     },
     middlewareHandlerRegisteredCallback: (entry) => {
       app.use(entry.genericPath, async (req, res, next) => {

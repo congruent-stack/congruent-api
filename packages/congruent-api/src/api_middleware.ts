@@ -9,6 +9,7 @@ import { HttpStatusCode } from "./http_status_code.js";
 import { CreateHandlerOutput, HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
 import { HttpMethodEndpointResponse } from "./http_method_endpoint_response.js";
 import { ICanTriggerAsync } from "./api_can_trigger.js";
+import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 
 export type MiddlewareHandlerSchemas = {
   headers?: z.ZodType;
@@ -169,12 +170,7 @@ export class MiddlewareHandlersRegistryEntryInternal<
 
   async triggerNoStaticTypeCheck(
     diScope: DIScope<any>,
-    requestObject: { 
-      headers: Record<string, string>,
-      pathParams: Record<string, string>,
-      query: object,
-      body: object,
-    }, 
+    requestObject: HttpRequestObject, 
     next: () => Promise<void>
   ): Promise<any> {
     let badRequestResponse: HttpResponseObject | null = null;
@@ -199,6 +195,7 @@ export class MiddlewareHandlersRegistryEntryInternal<
 
     const { method, pathSegments } = this._splitMiddlewarePath();
 
+    // TODO: HttpMethodEndpoint already does this (createPath), refactor to avoid code duplication
     const path = `/${pathSegments.map(segment =>
       segment.startsWith(':')
         ? (requestObject.pathParams[segment.slice(1)] ?? '?')
@@ -212,7 +209,7 @@ export class MiddlewareHandlersRegistryEntryInternal<
         genericPath: this.genericPath,
         pathSegments: pathSegments,
         headers,
-        pathParams: requestObject.pathParams as any, 
+        pathParams: requestObject.pathParams,
         query,
         body,
         injected: this._injection(diScope),

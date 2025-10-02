@@ -47,6 +47,14 @@ export class HttpMethodEndpoint<const TDef extends IHttpMethodEndpointDefinition
     return this._cachedGenericPath;
   }
 
+  public createPath(pathParams: Record<string, string>): string {
+    return `/${this.pathSegments.map(segment => 
+      segment.startsWith(':') 
+      ? (pathParams[segment.slice(1)] ?? '?') 
+      : segment
+    ).join('/')}`;
+  }
+
   private _method: HttpMethod = null as any;
   get method(): HttpMethod {
     return this._method;

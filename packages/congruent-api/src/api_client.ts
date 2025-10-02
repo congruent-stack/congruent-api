@@ -2,6 +2,7 @@ import { ApiContract, IApiContractDefinition, ValidateApiContractDefinition } fr
 import { HttpMethodCallFunc,  } from './api_client_http_method_call.js';
 import { HttpMethodEndpoint, IHttpMethodEndpointDefinition, ValidateHttpMethodEndpointDefinition } from './http_method_endpoint.js';
 import { ClientHttpMethodEndpointHandler } from "./http_method_endpoint_handler.js";
+import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 
 export function createClient<
   TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>
@@ -67,7 +68,7 @@ class InnerApiClient<TDef extends IApiContractDefinition & ValidateApiContractDe
         delete currObj[key];
         InnerApiClient._initialize(client, val, clientGenericHandler);
       } else if (val instanceof HttpMethodEndpoint) {
-        currObj[key] = (requestObject: never | { pathParams: Record<string, string>; headers: Record<string, string>; query: Record<string, any>; body: any }) => {
+        currObj[key] = (requestObject: never | HttpRequestObject) => {
           const pathParams = { ...client.__CONTEXT__.pathParameters };
           
           // Clear & reinitialize client context right before making the call

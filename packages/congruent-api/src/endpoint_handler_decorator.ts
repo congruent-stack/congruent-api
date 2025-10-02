@@ -1,12 +1,13 @@
 import z from "zod";
-import { DIContainer } from "./di_container.js";
-import { HttpMethodEndpointResponses } from "./http_method_endpoint.js";
+import { DIContainer, DIScope } from "./di_container.js";
+import { HttpMethodEndpoint, HttpMethodEndpointResponses } from "./http_method_endpoint.js";
 import { HttpMethod } from "./http_method_type.js";
 import { HttpStatusCode } from "./http_status_code.js";
 import { HttpMethodEndpointResponse } from "./http_method_endpoint_response.js";
-import { CreateHandlerOutput } from "./http_method_endpoint_handler_output.js";
+import { CreateHandlerOutput, HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
+import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 
-export type DecoratorHandlerSchemas = {
+export interface IDecoratorHandlerSchemas {
   headers?: z.ZodType;
   query?: z.ZodType;
   body?: z.ZodType;
@@ -14,7 +15,7 @@ export type DecoratorHandlerSchemas = {
 };
 
 export type DecoratorHandlerInput<
-  TDecoratorSchemas extends DecoratorHandlerSchemas
+  TDecoratorSchemas extends IDecoratorHandlerSchemas
 > = {
   method: HttpMethod;
   pathSegments: readonly string[];
@@ -26,7 +27,7 @@ export type DecoratorHandlerInput<
   body: TDecoratorSchemas['body'] extends z.ZodType ? z.output<TDecoratorSchemas['body']> : null; // z.output because the handler receives the parsed input
 };
 
-export type DecoratorHandlerOutput<TDecoratorSchemas extends DecoratorHandlerSchemas> =
+export type DecoratorHandlerOutput<TDecoratorSchemas extends IDecoratorHandlerSchemas> =
   | void
   | {
     [THttpStatusCode in keyof TDecoratorSchemas['responses'] & HttpStatusCode]: 
@@ -36,7 +37,7 @@ export type DecoratorHandlerOutput<TDecoratorSchemas extends DecoratorHandlerSch
   }[keyof TDecoratorSchemas['responses'] & HttpStatusCode];
 
 export interface IEndpointHandlerDecorator<
-  TDecoratorSchemas extends DecoratorHandlerSchemas
+  TDecoratorSchemas extends IDecoratorHandlerSchemas
 > {
   handle(
     input: DecoratorHandlerInput<TDecoratorSchemas>, 
@@ -44,68 +45,97 @@ export interface IEndpointHandlerDecorator<
   ): Promise<DecoratorHandlerOutput<TDecoratorSchemas>>;
 }
 
-// export interface IEndpointHandlerDecoratorConstructor<
-//   TDef extends DecoratorHandlerSchemas,
-//   TDIContainer extends DIContainer,
-//   T extends IEndpointHandlerDecorator<TDef>
-// > {
-//   new (...args: any[]): T;
-//   create(diScope: ReturnType<TDIContainer['createScope']>): T;
-// }
-
 export type EndpointHandlerDecoratorFactory<
-  TDecoratorSchemas extends DecoratorHandlerSchemas,
+  TDecoratorSchemas extends IDecoratorHandlerSchemas,
   TDIContainer extends DIContainer,
   TDecorator extends IEndpointHandlerDecorator<TDecoratorSchemas>
 > = (diScope: ReturnType<TDIContainer['createScope']>) => TDecorator;
 
-// /**
-//  * Helper type to extract the schema type from a decorator instance type
-//  */
-// export type ExtractDecoratorSchemas<T> = T extends IEndpointHandlerDecorator<infer TSchemas> ? TSchemas : never;
+export async function triggerDecoratorNoStaticTypeCheck(
+  endpoint: HttpMethodEndpoint<any>,
+  decorator: IEndpointHandlerDecorator<any>,
+  requestObject: HttpRequestObject, 
+  next: () => Promise<void>
+) {
+  let badRequestResponse: HttpResponseObject | null = null;
+  
+  const headers = decoratorParseRequestDefinitionField(endpoint.definition, 'headers', requestObject);
+  if (isHttpResponseObject(headers)) {
+    badRequestResponse = headers;
+    return badRequestResponse;
+  }
 
-// /**
-//  * Helper type to enforce strict parameter checking for decorator factories.
-//  * This type uses a method signature (not a function signature) to avoid bivariance issues.
-//  */
-// export type StrictDecoratorFactory<TDIScope, TDecorator> = {
-//   createDecorator(diScope: TDIScope): TDecorator;
-// }['createDecorator'];
+  const query = decoratorParseRequestDefinitionField(endpoint.definition, 'query', requestObject);
+  if (isHttpResponseObject(query)) {
+    badRequestResponse = query;
+    return badRequestResponse;
+  }
 
-// /**
-//  * Helper type to check if a function has exactly one REQUIRED parameter
-//  * This checks that () => T does NOT match, but (arg) => T DOES match
-//  */
-// type HasExactlyOneParameter<T> = 
-//   T extends () => any 
-//     ? false  // Zero parameters - reject
-//     : T extends (arg: any) => any 
-//       ? true  // At least one parameter - accept
-//       : false;
+  const body = decoratorParseRequestDefinitionField(endpoint.definition, 'body', requestObject);
+  if (isHttpResponseObject(body)) {
+    badRequestResponse = body;
+    return badRequestResponse;
+  }
 
-// /**
-//  * Helper function to create a properly typed decorator factory with strict parameter validation.
-//  * This enables automatic type inference of the schemas from the decorator class AND
-//  * enforces that the factory function has exactly one parameter.
-//  * 
-//  * @example
-//  * ```typescript
-//  * class MyDecorator implements IEndpointHandlerDecorator<MyDecoratorSchemas> {
-//  *   static create(diScope: DIScope<...>) { return new MyDecorator(...); }
-//  *   // ... implementation
-//  * }
-//  * 
-//  * // Usage with automatic type inference and parameter validation:
-//  * route(registry, 'GET /path')
-//  *   .decorate(decoratorFactory(MyDecorator.create))  // ✅ Validates parameter count
-//  * ```
-//  */
-// export function decoratorFactory<
-//   TFactory extends (...args: any[]) => any
-// >(
-//   factory: HasExactlyOneParameter<TFactory> extends true
-//     ? TFactory
-//     : { error: '❌ Decorator factory must accept exactly one parameter (diScope). Current factory has zero parameters.' }
-// ): TFactory {
-//   return factory as any;
-// }
+  const path = endpoint.createPath(requestObject.pathParams);
+
+  return decorator.handle({ 
+    ...requestObject,
+    method: endpoint.method,
+    genericPath: endpoint.genericPath,
+    path,
+    pathSegments: endpoint.pathSegments,
+  }, next as any);
+}
+
+function decoratorParseRequestDefinitionField<
+  T extends Record<string, any>
+>(
+  decoratorSchemas: IDecoratorHandlerSchemas,
+  key: 'headers' | 'query' | 'body',
+  requestObject: T
+): any {
+  if (decoratorSchemas[key]) {
+    if (
+      !(key in requestObject)
+      || requestObject[key as keyof T] === null
+      || requestObject[key as keyof T] === undefined
+    ) {
+      // decoratorSchemas[key].isOptional was deprecated in favour of safeParse with success check
+      const result = decoratorSchemas[key].safeParse(requestObject[key as keyof T]);
+      if (!result.success) {
+        // since frameworks are not consistent in sending null vs undefined for missing request object parts, 
+        // we handle both cases here, so that
+        // we handle missing parts of the request object according to how the schema defines them
+        switch (decoratorSchemas[key].type) {
+          case 'optional':
+            if (requestObject[key] === null) {
+              return undefined;
+            }
+            break;
+          case 'nullable':
+            if (requestObject[key] === undefined) {
+              return null;
+            }
+            break;
+        }
+        return { 
+          code: HttpStatusCode.BadRequest_400, 
+          body: `'${key}' is required for this endpoint` + (
+            key === 'body' ? ", { 'Content-Type': 'application/json' } header might be missing" : ''
+          )
+        };
+      }
+      return result.data;
+    }
+    const result = decoratorSchemas[key].safeParse(requestObject[key as keyof T]);
+    if (!result.success) {
+      return { 
+        code: HttpStatusCode.BadRequest_400, 
+        body: result.error.issues
+      };
+    }
+    return result.data;
+  }
+  return null; // by design, if request object parts are not defined through schema, we set them to null
+}

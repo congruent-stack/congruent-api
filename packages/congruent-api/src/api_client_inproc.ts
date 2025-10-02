@@ -5,9 +5,10 @@ import { ApiHandlersRegistry } from "./api_handlers_registry.js";
 import { MiddlewareHandlersRegistry } from "./api_middleware.js";
 import { execHandlerChain } from "./api_exec_handler_chain.js";
 import { route } from "./api_routing.js";
-import { DIContainer, DIContainerTestClone } from "./di_container.js";
+import { DIContainer, DIContainerTestClone, DIScope } from "./di_container.js";
 import { HttpResponseObject } from "./http_method_endpoint_handler_output.js";
 import { ClientHttpMethodEndpointHandlerInput } from "./http_method_endpoint_handler_input.js";
+import { triggerDecoratorNoStaticTypeCheck } from "./endpoint_handler_decorator.js";
 
 export interface InProcApiClientOptions<
   TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>,
@@ -57,9 +58,14 @@ export function createInProcApiClient<
     endpointHandlerEntry.decoratorFactories.forEach((decoratorFactory) => {
       allHandlerEntries.push({
         genericPath: endpointHandlerEntry.genericPath,
-        triggerNoStaticTypeCheck: async (diScope: any, requestObject, next) => {
+        triggerNoStaticTypeCheck: async (diScope: DIScope<any>, requestObject, next) => {
           const decorator = decoratorFactory(diScope);
-          return decorator.handle(requestObject, next);
+          return await triggerDecoratorNoStaticTypeCheck(
+            endpointHandlerEntry.methodEndpoint,
+            decorator,
+            requestObject,
+            next!
+          );
         }
       });
     });
@@ -72,9 +78,12 @@ export function createInProcApiClient<
             return mockResponse;
           }
         });
+      } else {
+        allHandlerEntries.push(endpointHandlerEntry);
       }
+    } else {
+      allHandlerEntries.push(endpointHandlerEntry);
     }
-    allHandlerEntries.push(endpointHandlerEntry);
     const response = await execHandlerChain(diScope, allHandlerEntries, input);
     if (!response) {
       throw new Error(`No response from ${input.method} ${input.genericPath}`);

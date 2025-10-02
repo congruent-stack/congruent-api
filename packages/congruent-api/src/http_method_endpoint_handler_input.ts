@@ -29,3 +29,10 @@ export type ClientHttpMethodEndpointHandlerInput = {
   query?: any;
   body?: any;
 };
+
+export type HttpRequestObject = {
+  headers: Record<string, string>,
+  pathParams: Record<string, string>,
+  query: Record<string, string>,
+  body: object,
+}

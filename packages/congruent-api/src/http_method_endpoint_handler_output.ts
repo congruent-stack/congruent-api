@@ -42,7 +42,7 @@ export type CreateHandlerOutput<THttpStatusCode extends HttpStatusCode, TRespDef
 export type ClientHttpMethodEndpointHandlerOutput = {
   code: HttpStatusCode;
   headers?: any;
-  body: any;
+  body: any; //TODO: body is not optional, should I replace ClientHttpMethodEndpointHandlerOutput with HttpResponseObject altogether? 
 }
 
 export type HttpResponseObject = {

@@ -5,12 +5,12 @@ import { endpoint, HttpMethodEndpointResponses } from './http_method_endpoint';
 import { HttpStatusCode } from './http_status_code';
 import { HttpMethodEndpointResponse, response } from './http_method_endpoint_response';
 import { middleware } from './api_middleware';
-import { DIContainer } from './di_container';
+import { DIContainer, DIScope } from './di_container';
 import { createRegistry } from './api_handlers_registry';
 import { route } from './api_routing';
 import { execHandlerChain } from './api_exec_handler_chain';
 import { ICanTriggerAsync } from './api_can_trigger';
-import { DecoratorHandlerInput, DecoratorHandlerSchemas, IEndpointHandlerDecorator } from './endpoint_handler_decorator';
+import { DecoratorHandlerInput, IDecoratorHandlerSchemas, IEndpointHandlerDecorator } from './endpoint_handler_decorator';
 
 describe('api_exec_handler_chain', () => {
 
@@ -83,7 +83,7 @@ describe('api_exec_handler_chain', () => {
         await next();
       });
 
-    class MyDecoratorSchemas implements DecoratorHandlerSchemas {
+    class MyDecoratorSchemas implements IDecoratorHandlerSchemas {
       responses = {};
     }
 
@@ -97,7 +97,7 @@ describe('api_exec_handler_chain', () => {
         this._items = items;
       }
 
-      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
+      async handle(_req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
         this._items.push('dec-1');
         await next();
       }

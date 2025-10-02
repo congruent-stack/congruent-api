@@ -2,7 +2,7 @@ import { describe, test, expect } from "vitest";
 import z from "zod";
 import express from "express";
 import request from "supertest";
-import { apiContract, createInProcApiClient, createRegistry, DecoratorHandlerInput, DecoratorHandlerSchemas, DIContainer, endpoint, HttpStatusCode, IEndpointHandlerDecorator, middleware, response, route } from "@congruent-stack/congruent-api";
+import { apiContract, createInProcApiClient, createRegistry, DecoratorHandlerInput, IDecoratorHandlerSchemas, DIContainer, endpoint, HttpStatusCode, IEndpointHandlerDecorator, middleware, response, route } from "@congruent-stack/congruent-api";
 import { createExpressRegistry } from "@congruent-stack/congruent-api-express";
 import { createFetchClient } from "@congruent-stack/congruent-api-fetch";
 import type { AddressInfo } from "node:net";
@@ -144,7 +144,7 @@ describe("Express middleware execution order", () => {
         await next();
       });
 
-    class MyDecoratorSchemas implements DecoratorHandlerSchemas {
+    class MyDecoratorSchemas implements IDecoratorHandlerSchemas {
       responses = {};
     }
 
@@ -286,7 +286,7 @@ describe("Express middleware execution order", () => {
         await next();
       });
 
-    class MyDecoratorSchemas implements DecoratorHandlerSchemas {
+    class MyDecoratorSchemas implements IDecoratorHandlerSchemas {
       responses = {};
     }
 
@@ -436,7 +436,7 @@ describe("Express middleware execution order", () => {
         await next();
       });
 
-    class MyDecoratorSchemas implements DecoratorHandlerSchemas {
+    class MyDecoratorSchemas implements IDecoratorHandlerSchemas {
       responses = {};
     }
 

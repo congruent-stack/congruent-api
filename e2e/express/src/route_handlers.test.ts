@@ -11,7 +11,7 @@ import {
   response, 
   route,
   createInProcApiClient,
-  DecoratorHandlerSchemas,
+  IDecoratorHandlerSchemas,
   IEndpointHandlerDecorator,
   DecoratorHandlerInput,
   DecoratorHandlerOutput,
@@ -144,7 +144,7 @@ describe('api_client', () => {
       };
     });
 
-  class EnforceAdminDecoratorSchemas implements DecoratorHandlerSchemas {
+  class EnforceAdminDecoratorSchemas implements IDecoratorHandlerSchemas {
     responses = {
       [HttpStatusCode.Forbidden_403]: response({
         body: MissingRolesForbiddenResponseBodySchema
@@ -174,7 +174,7 @@ describe('api_client', () => {
   }
 
 
-  class BadCreateSignatureDecoratorSchemas implements DecoratorHandlerSchemas {
+  class BadCreateSignatureDecoratorSchemas implements IDecoratorHandlerSchemas {
     // query = z.object({
     //   unused: z.string()
     // });
@@ -196,7 +196,7 @@ describe('api_client', () => {
     }
   }
 
-  class  BadSecondDecoratorSchemas implements DecoratorHandlerSchemas {
+  class  BadSecondDecoratorSchemas implements IDecoratorHandlerSchemas {
     // query = z.object({
     //   unused: z.string()
     // });
@@ -232,7 +232,6 @@ describe('api_client', () => {
     // Error: Types of parameters 'input' and 'input' are incompatible
     // (handle method has wrong signature: string instead of DecoratorHandlerInput)
     .decorate(BadSecondDecorator.create)
-
     .decorate(scope => new BadSecondDecorator()) 
     
     .inject(scope => ({

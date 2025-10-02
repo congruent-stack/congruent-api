@@ -6,7 +6,8 @@ import { BadRequestValidationErrorResponse, HttpMethodEndpointHandlerOutput, Htt
 import { HttpStatusCode } from "./http_status_code.js";
 import z from "zod";
 import { TypedPathParams } from "./typed_path_params.js";
-import { DecoratorHandlerSchemas, IEndpointHandlerDecorator, EndpointHandlerDecoratorFactory, DecoratorHandlerInput, DecoratorHandlerOutput } from "./endpoint_handler_decorator.js";
+import { IEndpointHandlerDecorator, EndpointHandlerDecoratorFactory } from "./endpoint_handler_decorator.js";
+import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 
 export type PrepareRegistryEntryCallback<
   TDef extends IHttpMethodEndpointDefinition & ValidateHttpMethodEndpointDefinition<TDef>,
@@ -19,11 +20,6 @@ export type OnHandlerRegisteredCallback<
   TDIContainer extends DIContainer,
   TPathParams extends string
 > = (entry: MethodEndpointHandlerRegistryEntry<TDef, TDIContainer, TPathParams, any>) => void;
-
-// type DecoratorConstructor<
-//   TDIContainer extends DIContainer,
-//   T extends IEndpointHandlerDecorator
-// > = (/*new*/ (scope: ReturnType<TDIContainer['createScope']>) => T);
 
 export class MethodEndpointHandlerRegistryEntry<
   TDef extends IHttpMethodEndpointDefinition & ValidateHttpMethodEndpointDefinition<TDef>,
@@ -83,51 +79,10 @@ export class MethodEndpointHandlerRegistryEntry<
     return this as unknown as MethodEndpointHandlerRegistryEntry<TDef, TDIContainer, TPathParams, TNewInjected>;
   }
 
-  private readonly _decoratorFactories: EndpointHandlerDecoratorFactory<any, TDIContainer, any>[] = [];
-  public get decoratorFactories(): EndpointHandlerDecoratorFactory<any, TDIContainer, any>[] {
+  private readonly _decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] = [];
+  public get decoratorFactories(): ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] {
     return this._decoratorFactories;
   }
-
-  /**
-   * Register a decorator for this endpoint handler.
-   * The decorator's schema type is automatically inferred from the return type of the factory function.
-   * 
-   * @param decoratorFactory - A function that takes a DI scope and returns a decorator instance
-   *                           that implements IEndpointHandlerDecorator.
-   *                           MUST accept exactly one parameter of type DIScope.
-   * 
-   * Compile-time validations:
-   * - ✅ Validates parameter count (must be exactly 1)
-   * - ✅ Validates parameter type (must be DIScope)
-   * - ✅ Validates return type has correct handle method signature
-   * - ✅ Automatic schema type inference from decorator
-   * 
-   * @returns this registry entry for chaining
-   * 
-   * @example
-   * ```typescript
-   * route(registry, 'GET /api/admin/dashboard')
-   *   .decorate(EnforceAdminDecorator.create)  // ✅ Schema type automatically inferred
-   *   .register(...)
-   * ```
-   */
-  // decorate<
-  //   TDecorator extends {
-  //     handle(
-  //       input: DecoratorHandlerInput<any>,
-  //       next: () => Promise<void>
-  //     ): Promise<any>
-  //   }
-  // > (
-  //   decoratorFactory:
-  //     // Must be a function that takes exactly the DI scope type
-  //     ((diScope: ReturnType<TDIContainer['createScope']>) => TDecorator) extends infer TExpected
-  //       ? TExpected
-  //       : never
-  // ): this {
-  //   this._decoratorFactories.push(decoratorFactory as any);
-  //   return this;
-  // }
 
   decorate<
     TDecorator extends { handle(input: any, next: any): Promise<any> }
@@ -189,7 +144,7 @@ export class MethodEndpointHandlerRegistryEntry<
       return badRequestResponse as any;
     }
 
-    const path = this.createPath(requestObject.pathParams);
+    const path = this._methodEndpoint.createPath(requestObject.pathParams);
 
     return await this._handler({ 
       method: this._methodEndpoint.method,
@@ -206,12 +161,7 @@ export class MethodEndpointHandlerRegistryEntry<
 
   async triggerNoStaticTypeCheck(
     diScope: DIScope<any>,
-    requestObject: { 
-      headers: Record<string, string>,
-      pathParams: Record<string, string>,
-      query: object,
-      body: object,
-    }
+    requestObject: HttpRequestObject,
   ): Promise<any> {
     if (!this._handler) {
       throw new Error('Handler not set for this endpoint');
@@ -237,7 +187,7 @@ export class MethodEndpointHandlerRegistryEntry<
       return badRequestResponse;
     }
 
-    const path = this.createPath(requestObject.pathParams);
+    const path = this._methodEndpoint.createPath(requestObject.pathParams);
 
     return await this._handler({ 
       method: this._methodEndpoint.method,
@@ -250,14 +200,6 @@ export class MethodEndpointHandlerRegistryEntry<
       body,
       injected: this._injection(diScope),
     });
-  }
-
-  private createPath(pathParams: Record<string, string>): string {
-    return `/${this._methodEndpoint.pathSegments.map(segment => 
-      segment.startsWith(':') 
-      ? (pathParams[segment.slice(1)] ?? '?') 
-      : segment
-    ).join('/')}`;
   }
 }
 

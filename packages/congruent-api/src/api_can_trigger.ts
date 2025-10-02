@@ -1,14 +1,10 @@
 import { DIScope } from "./di_container.js";
+import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 
 export interface ICanTriggerAsync {
   triggerNoStaticTypeCheck(
     diScope: DIScope<any>,
-    requestObject: { 
-      headers: Record<string, string>,
-      pathParams: Record<string, string>,
-      query: object,
-      body: object,
-    },
+    requestObject: HttpRequestObject,
     next?: () => Promise<void>
   ): Promise<any>;
 

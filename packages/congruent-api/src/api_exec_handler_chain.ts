@@ -27,6 +27,7 @@ export async function execHandlerChain(
     }
     const currResponse = await current.triggerNoStaticTypeCheck(
       diScope,
+      // input, TODO: use this instead of creating a new object
       {
         headers: input.headers,
         pathParams: input.pathParams,
