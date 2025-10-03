@@ -208,7 +208,7 @@ describe('api_client', () => {
     };
   }
 
-  class BadSecondDecorator { // NOT implements IEndpointHandlerDecorator<BadSecondDecoratorSchemas>
+  class BadSecondDecorator { // NOT implements IEndpointHandlerDecorator<BadSecondDecoratorSchemas> {
     static create(scope: ReturnType<typeof container.createScope>): BadSecondDecorator {
       return new BadSecondDecorator();
     }
@@ -221,7 +221,7 @@ describe('api_client', () => {
 
   route(apiReg, 'GET /api/admin/dashboard')
     // ✅ SOLUTION: Automatic schema inference AND strict parameter type checking!
-    .decorate(EnforceAdminDecorator.create)
+    .decorateWith(EnforceAdminDecorator)
     
     // ❌ Uncommenting these correctly causes compile errors:
     

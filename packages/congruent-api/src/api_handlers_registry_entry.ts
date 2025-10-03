@@ -6,7 +6,7 @@ import { BadRequestValidationErrorResponse, HttpMethodEndpointHandlerOutput, Htt
 import { HttpStatusCode } from "./http_status_code.js";
 import z from "zod";
 import { TypedPathParams } from "./typed_path_params.js";
-import { IEndpointHandlerDecorator, EndpointHandlerDecoratorFactory } from "./endpoint_handler_decorator.js";
+import { IEndpointHandlerDecorator } from "./endpoint_handler_decorator.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 
 export type PrepareRegistryEntryCallback<
@@ -84,8 +84,44 @@ export class MethodEndpointHandlerRegistryEntry<
     return this._decoratorFactories;
   }
 
+  /**
+   * 
+   * @param decoratorFactory must be a function that takes exactly the DI scope type and returns an instance of a class that implements IEndpointHandlerDecorator
+   * @returns this
+   * 
+   * Initially, the method was defined as:
+   * ```ts
+   * decorate<
+   *   TDecoratorSchemas extends IDecoratorHandlerSchemas, 
+   *   TDecorator extends IEndpointHandlerDecorator<TDecoratorSchemas>
+   * > (
+   *   decoratorFactory: IEndpointHandlerDecoratorFactory<TDecoratorSchemas, TDIContainer, TDecorator>
+   * ): this {
+   *   this._decoratorFactories.push(decoratorFactory);
+   *   return this;
+   * }
+   * ```
+   * 
+   * and the type IEndpointHandlerDecoratorFactory was defined as:
+   * ```ts
+   * type IEndpointHandlerDecoratorFactory<
+   *   TDecoratorSchemas extends IDecoratorHandlerSchemas, 
+   *   TDIContainer extends DIContainer, 
+   *   TDecorator extends IEndpointHandlerDecorator<TDecoratorSchemas>
+   * > = (diScope: ReturnType<TDIContainer['createScope']>) => TDecorator;
+   * ```
+   * 
+   * However, TypeScript was incorrectly inferring the types when using the 'decorate' method. 
+   * The end developer would have had to explicitly provide the generic types, which is not ideal.
+   * 
+   * With the current definition, TypeScript can infer the types from the decoratorFactory parameter, 
+   * making it easier to use.
+   */
   decorate<
-    TDecorator extends { handle(input: any, next: any): Promise<any> }
+    TDecorator extends { 
+      // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
+      handle(input: any, next: any): Promise<any> 
+    }
   > (
     decoratorFactory:
       // Must be a function that takes exactly the DI scope type
@@ -96,6 +132,27 @@ export class MethodEndpointHandlerRegistryEntry<
         : never
   ): this {
     this._decoratorFactories.push(decoratorFactory as any);
+    return this;
+  }
+
+  decorateWith<
+    TDecorator extends { 
+      // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
+      handle(input: any, next: any): Promise<any> 
+    }
+  > (
+    decoratorStaticMethodFactory: (
+      {
+        new (...args: any[]): TDecorator;
+        create(diScope: ReturnType<TDIContainer['createScope']>): TDecorator;
+      } extends infer TExpected
+        ? TDecorator extends IEndpointHandlerDecorator<infer _TSchemas>
+          ? TExpected
+          : "❌ ERROR: The decoratorStaticMethodFactory must be a class that implements IEndpointHandlerDecorator and has a static 'create' method that takes exactly the DI scope type and returns an instance of the class"
+        : never
+    )
+  ): this {
+    this._decoratorFactories.push(decoratorStaticMethodFactory.create as any);
     return this;
   }
 
