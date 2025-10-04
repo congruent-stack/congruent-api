@@ -1,8 +1,21 @@
 import { expect, test, describe } from 'vitest';
 import z from "zod";
 
-import { createInProcApiClient, HttpStatusCode, createRegistry, apiContract, endpoint, response, route, middleware } from "./index.js";
-import { DIContainer } from './di_container.js';
+import { 
+  createInProcApiClient, 
+  HttpStatusCode, 
+  createRegistry, 
+  apiContract,
+  endpoint, 
+  response, 
+  route, 
+  middleware, 
+  DIContainer,
+  IDecoratorHandlerSchemas,
+  IEndpointHandlerDecorator,
+  DecoratorHandlerInput,
+  DecoratorHandlerOutput
+} from "./index.js";
 
 
 describe('api_client_inproc', () => {
@@ -94,7 +107,36 @@ describe('api_client_inproc', () => {
     },
   });
 
+  class TimeProfilerDecoratorSchemas implements IDecoratorHandlerSchemas {
+    responses = {
+      [HttpStatusCode.Forbidden_403]: response({
+        body: z.object({
+          foo: z.string()
+        }),
+      }),
+    };
+  }
+
+  class TimeProfilerDecorator implements IEndpointHandlerDecorator<TimeProfilerDecoratorSchemas> {
+    static create(diScope: ReturnType<typeof dicontainer.createScope>): TimeProfilerDecorator {
+      return new TimeProfilerDecorator();
+    }
+    async handle(input: DecoratorHandlerInput<TimeProfilerDecoratorSchemas>, next: () => Promise<void>): Promise<DecoratorHandlerOutput<TimeProfilerDecoratorSchemas>> {
+      const start = performance.now();
+      await next();
+      const end = performance.now();
+      // console.log(`api_client_inproc_test: Request for "${input.path}" took ${end - start} ms`);
+      // return {
+      //   code: HttpStatusCode.Forbidden_403,
+      //   body: { 
+      //     foo: 'bar' 
+      //   }
+      // }
+    }
+  }
+
   middleware(pokedexApiReg, '/pokemons') // /:id
+    .decorateWith(TimeProfilerDecorator)
     .inject((c) => ({
       loggerSvc: c.getLoggerSvc()
     }))

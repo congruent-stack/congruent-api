@@ -107,7 +107,36 @@ describe('api_client', () => {
   
   const apiReg = createExpressRegistry(app, container, contract);
 
+  class TimeProfilerDecoratorSchemas implements IDecoratorHandlerSchemas {
+    responses = {
+      [HttpStatusCode.Forbidden_403]: response({
+        body: z.object({
+          foo: z.string()
+        }),
+      }),
+    };
+  }
+
+  class TimeProfilerDecorator implements IEndpointHandlerDecorator<TimeProfilerDecoratorSchemas> {
+    static create(diScope: ReturnType<typeof container.createScope>): TimeProfilerDecorator {
+      return new TimeProfilerDecorator();
+    }
+    async handle(input: DecoratorHandlerInput<TimeProfilerDecoratorSchemas>, next: () => Promise<void>): Promise<DecoratorHandlerOutput<TimeProfilerDecoratorSchemas>> {
+      const start = performance.now();
+      await next();
+      const end = performance.now();
+      // console.log(`Request for "${input.path}" took ${end - start} ms`);
+      // return {
+      //   code: HttpStatusCode.Forbidden_403,
+      //   body: { 
+      //     foo: 'bar' 
+      //   }
+      // }
+    }
+  }
+
   middleware(apiReg, '')
+    .decorateWith(TimeProfilerDecorator)
     .inject(scope => ({
       sessionUserSvc: scope.getSessionUserSvc()
     }))
@@ -342,7 +371,7 @@ describe('api_client', () => {
       body: { baz: 'bar', bar: 101112 }
     });
     expect(response3.code).toBe(HttpStatusCode.BadRequest_400);
-    console.log('Response3 body:', response3.body);
+    // console.log('Response3 body:', response3.body);
   });
 
   test('Example of route handler end-to-end testing (middleware included)', async () => {

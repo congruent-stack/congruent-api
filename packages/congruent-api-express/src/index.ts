@@ -14,7 +14,8 @@ import {
   ValidateHttpMethodEndpointDefinition,
   DIContainer,
   isHttpResponseObject,
-  triggerDecoratorNoStaticTypeCheck
+  triggerEndpointDecoratorNoStaticTypeCheck,
+  triggerMiddlewareDecoratorNoStaticTypeCheck
 } from '@congruent-stack/congruent-api';
 
 export function createExpressRegistry<
@@ -42,7 +43,7 @@ export function createExpressRegistry<
           req.pathParams = req.params;
           const nextAsync = next as () => Promise<void>;
           const decorator = decoratorFactory(res.locals.diScope);
-          const haltResult = await triggerDecoratorNoStaticTypeCheck(
+          const haltResult = await triggerEndpointDecoratorNoStaticTypeCheck(
             entry.methodEndpoint,
             decorator,
             req as any,
@@ -78,7 +79,34 @@ export function createExpressRegistry<
       app[method](genericPath, ...routeHandlers);
     },
     middlewareHandlerRegisteredCallback: (entry) => {
-      app.use(entry.genericPath, async (req, res, next) => {
+      const { /*TODO: method,*/ genericPath } = entry;
+      const middlewareHandlers: RequestHandler[] = [];
+      entry.decoratorFactories.forEach(decoratorFactory => {
+        middlewareHandlers.push(async (req, res, next) => {
+          if (!res.locals.diScope) {
+            res.locals.diScope = entry.dicontainer.createScope();
+          }
+          // @ts-ignore
+          req.pathParams = req.params;
+          const nextAsync = next as () => Promise<void>;
+          const decorator = decoratorFactory(res.locals.diScope);
+          const haltResult = await triggerMiddlewareDecoratorNoStaticTypeCheck(
+            entry,
+            decorator,
+            req as any,
+            nextAsync
+          );
+          if (haltResult && isHttpResponseObject(haltResult)) {
+            const haltResultHeaders = new Map(
+              Object.entries(haltResult.headers || {})
+            ) as Map<string, string | number | readonly string[]>;
+            res.status(haltResult.code)
+              .setHeaders(haltResultHeaders)
+              .json(haltResult.body);
+          }
+        });
+      });
+      middlewareHandlers.push(async (req, res, next) => {
         if (!res.locals.diScope) {
           res.locals.diScope = entry.dicontainer.createScope();
         }
@@ -95,6 +123,7 @@ export function createExpressRegistry<
             .json(haltResult.body);
         }
       });
+      app.use(genericPath, ...middlewareHandlers);
     }
   });
   return registry;

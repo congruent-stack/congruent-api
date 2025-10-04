@@ -6,6 +6,7 @@ import { HttpStatusCode } from "./http_status_code.js";
 import { HttpMethodEndpointResponse } from "./http_method_endpoint_response.js";
 import { CreateHandlerOutput, HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
+import { MiddlewareHandlersRegistryEntryInternal } from "./api_middleware.js";
 
 export interface IDecoratorHandlerSchemas {
   headers?: z.ZodType;
@@ -51,7 +52,7 @@ export type EndpointHandlerDecoratorFactory<
   TDecorator extends IEndpointHandlerDecorator<TDecoratorSchemas>
 > = (diScope: ReturnType<TDIContainer['createScope']>) => TDecorator;
 
-export async function triggerDecoratorNoStaticTypeCheck(
+export async function triggerEndpointDecoratorNoStaticTypeCheck(
   endpoint: HttpMethodEndpoint<any>,
   decorator: IEndpointHandlerDecorator<any>,
   requestObject: HttpRequestObject, 
@@ -85,6 +86,43 @@ export async function triggerDecoratorNoStaticTypeCheck(
     genericPath: endpoint.genericPath,
     path,
     pathSegments: endpoint.pathSegments,
+  }, next as any);
+}
+
+export async function triggerMiddlewareDecoratorNoStaticTypeCheck(
+  middlewareEntry: MiddlewareHandlersRegistryEntryInternal<any, unknown>,
+  decorator: IEndpointHandlerDecorator<any>,
+  requestObject: HttpRequestObject, 
+  next: () => Promise<void>
+) {
+  let badRequestResponse: HttpResponseObject | null = null;
+  
+  const headers = decoratorParseRequestDefinitionField(middlewareEntry.middlewareSchemas, 'headers', requestObject);
+  if (isHttpResponseObject(headers)) {
+    badRequestResponse = headers;
+    return badRequestResponse;
+  }
+
+  const query = decoratorParseRequestDefinitionField(middlewareEntry.middlewareSchemas, 'query', requestObject);
+  if (isHttpResponseObject(query)) {
+    badRequestResponse = query;
+    return badRequestResponse;
+  }
+
+  const body = decoratorParseRequestDefinitionField(middlewareEntry.middlewareSchemas, 'body', requestObject);
+  if (isHttpResponseObject(body)) {
+    badRequestResponse = body;
+    return badRequestResponse;
+  }
+
+  const path = middlewareEntry.createPath(requestObject.pathParams);
+
+  return decorator.handle({ 
+    ...requestObject,
+    method: middlewareEntry.method as HttpMethod, // TODO: might be empty, as middleware can be registered with path only, without method
+    genericPath: middlewareEntry.genericPath,
+    path,
+    pathSegments: middlewareEntry.pathSegments,
   }, next as any);
 }
 

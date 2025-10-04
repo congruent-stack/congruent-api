@@ -10,6 +10,7 @@ import { CreateHandlerOutput, HttpResponseObject, isHttpResponseObject } from ".
 import { HttpMethodEndpointResponse } from "./http_method_endpoint_response.js";
 import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
+import { IEndpointHandlerDecorator } from "./endpoint_handler_decorator.js";
 
 export type MiddlewareHandlerSchemas = {
   headers?: z.ZodType;
@@ -112,7 +113,57 @@ export class MiddlewareHandlersRegistryEntryInternal<
     return this._middlewareGenericPath;
   }
 
-  private _splitMiddlewarePath(): { method: string; pathSegments: string[] } {
+  private readonly _middlewarePathSegments: string[];
+  public get pathSegments(): readonly string[] {
+    return this._middlewarePathSegments;
+  }
+
+  private readonly _middlewareMethod: string;
+  public get method(): string {
+    return this._middlewareMethod;
+  }
+
+  // private _splitMiddlewarePath(): void {
+  //   const splitResult = this._middlewareGenericPath.split(" ");
+  //   let method: string = '';
+  //   let pathSegments: string[] = [];
+  //   if (splitResult.length === 2) {
+  //     method = splitResult[0].trim();
+  //     if (method === '') {
+  //       throw new Error(`Invalid middleware path format: "${this._middlewareGenericPath}". HTTP method is empty.`);
+  //     }
+  //     pathSegments = splitResult[1]
+  //       .split("/")
+  //       .map(segment => segment.trim())
+  //       .filter(segment => segment !== '');
+  //   }
+
+  //   this._middlewareMethod = method;
+  //   this._middlewarePathSegments = pathSegments;
+  // }
+
+  private readonly _middlewareSchemas: MiddlewareHandlerSchemas;
+  public get middlewareSchemas(): MiddlewareHandlerSchemas {
+    return this._middlewareSchemas;
+  }
+
+  private readonly _handler: MiddlewareHandlerInternal<TInjected>;
+
+  constructor(
+    diContainer: TDIContainer,
+    middlewarePath: string,
+    middlewareSchemas: MiddlewareHandlerSchemas,
+    decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[],
+    injection: (dicontainer: TDIContainer) => TInjected,
+    handler: MiddlewareHandlerInternal<TInjected>
+  ) {
+    this._dicontainer = diContainer;
+    this._middlewareGenericPath = middlewarePath;
+    this._middlewareSchemas = middlewareSchemas;
+    this._decoratorFactories.push(...decoratorFactories);
+    this._injection = injection;
+    this._handler = handler;
+
     const splitResult = this._middlewareGenericPath.split(" ");
     let method: string = '';
     let pathSegments: string[] = [];
@@ -126,28 +177,14 @@ export class MiddlewareHandlersRegistryEntryInternal<
         .map(segment => segment.trim())
         .filter(segment => segment !== '');
     }
-    return {
-      method,
-      pathSegments
-    };
+
+    this._middlewareMethod = method;
+    this._middlewarePathSegments = pathSegments;
   }
 
-  private readonly _middlewareSchemas: MiddlewareHandlerSchemas;
-
-  private readonly _handler: MiddlewareHandlerInternal<TInjected>;
-
-  constructor(
-    diContainer: TDIContainer,
-    middlewarePath: string,
-    middlewareSchemas: MiddlewareHandlerSchemas,
-    injection: (dicontainer: TDIContainer) => TInjected,
-    handler: MiddlewareHandlerInternal<TInjected>
-  ) {
-    this._dicontainer = diContainer;
-    this._middlewareGenericPath = middlewarePath;
-    this._middlewareSchemas = middlewareSchemas;
-    this._injection = injection;
-    this._handler = handler;
+  private readonly _decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] = [];
+  public get decoratorFactories(): ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] {
+    return this._decoratorFactories;
   }
 
   private _injection: any = (_dicontainer: TDIContainer) => ({});
@@ -193,21 +230,14 @@ export class MiddlewareHandlersRegistryEntryInternal<
       return badRequestResponse;
     }
 
-    const { method, pathSegments } = this._splitMiddlewarePath();
-
-    // TODO: HttpMethodEndpoint already does this (createPath), refactor to avoid code duplication
-    const path = `/${pathSegments.map(segment =>
-      segment.startsWith(':')
-        ? (requestObject.pathParams[segment.slice(1)] ?? '?')
-        : segment
-    ).join('/')}`;
+    const path = this.createPath(requestObject.pathParams);
 
     return await this._handler(
       { 
-        method: method as HttpMethod, // TODO: might be empty, as middleware can be registered with path only, without method, possible fix: take it from express.request.method
+        method: this.method as HttpMethod, // TODO: might be empty, as middleware can be registered with path only, without method
         path,
         genericPath: this.genericPath,
-        pathSegments: pathSegments,
+        pathSegments: this.pathSegments,
         headers,
         pathParams: requestObject.pathParams,
         query,
@@ -216,6 +246,15 @@ export class MiddlewareHandlersRegistryEntryInternal<
       }, 
       next
     );
+  }
+
+  public createPath(pathParams: Record<string, string>): string {
+    const path = `/${this.pathSegments.map(segment =>
+      segment.startsWith(':')
+        ? (pathParams[segment.slice(1)] ?? '?')
+        : segment
+    ).join('/')}`;
+    return path;
   }
 }
 
@@ -255,10 +294,88 @@ export class MiddlewareHandlersRegistryEntry<
       this._registry.dicontainer,
       this._path,
       middlewareSchemas,
+      this._decoratorFactories,
       this._injection,
       handler as unknown as MiddlewareHandlerInternal<TInjected>
     );
     this._registry.register(internalEntry);
+  }
+
+  private readonly _decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] = [];
+  public get decoratorFactories(): ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] {
+    return this._decoratorFactories;
+  }
+
+  /**
+   * 
+   * @param decoratorFactory must be a function that takes exactly the DI scope type and returns an instance of a class that implements IEndpointHandlerDecorator
+   * @returns this
+   * 
+   * Initially, the method was defined as:
+   * ```ts
+   * decorate<
+   *   TDecoratorSchemas extends IDecoratorHandlerSchemas, 
+   *   TDecorator extends IEndpointHandlerDecorator<TDecoratorSchemas>
+   * > (
+   *   decoratorFactory: IEndpointHandlerDecoratorFactory<TDecoratorSchemas, TDIContainer, TDecorator>
+   * ): this {
+   *   this._decoratorFactories.push(decoratorFactory);
+   *   return this;
+   * }
+   * ```
+   * 
+   * and the type IEndpointHandlerDecoratorFactory was defined as:
+   * ```ts
+   * type IEndpointHandlerDecoratorFactory<
+   *   TDecoratorSchemas extends IDecoratorHandlerSchemas, 
+   *   TDIContainer extends DIContainer, 
+   *   TDecorator extends IEndpointHandlerDecorator<TDecoratorSchemas>
+   * > = (diScope: ReturnType<TDIContainer['createScope']>) => TDecorator;
+   * ```
+   * 
+   * However, TypeScript was incorrectly inferring the types when using the 'decorate' method. 
+   * The end developer would have had to explicitly provide the generic types, which is not ideal.
+   * 
+   * With the current definition, TypeScript can infer the types from the decoratorFactory parameter, 
+   * making it easier to use.
+   */
+  decorate<
+    TDecorator extends { 
+      // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
+      handle(input: any, next: any): Promise<any> 
+    }
+  > (
+    decoratorFactory:
+      // Must be a function that takes exactly the DI scope type
+      ((diScope: ReturnType<TDIContainer['createScope']>) => TDecorator) extends infer TExpected
+        ? TDecorator extends IEndpointHandlerDecorator<infer _TSchemas>
+          ? TExpected
+          : "❌ ERROR: The decoratorFactory must return an instance of a class that implements IEndpointHandlerDecorator"
+        : never
+  ): this {
+    this._decoratorFactories.push(decoratorFactory as any);
+    return this;
+  }
+
+  decorateWith<
+    TDecorator extends { 
+      // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
+      handle(input: any, next: any): Promise<any> 
+    }
+  > (
+    decoratorStaticMethodFactory: (
+      {
+        new (...args: any[]): TDecorator;
+        create(diScope: ReturnType<TDIContainer['createScope']>): TDecorator;
+      } extends infer TExpected
+        ? TDecorator extends IEndpointHandlerDecorator<infer _TSchemas>
+          ? TExpected
+          : "❌ ERROR: The decoratorStaticMethodFactory must be a class that implements IEndpointHandlerDecorator and has a static 'create' method that takes exactly the DI scope type and returns an instance of the class"
+        : never
+    )
+  ): this {
+    this._decoratorFactories.push(decoratorStaticMethodFactory.create as any);
+    return this;
   }
 }
 
