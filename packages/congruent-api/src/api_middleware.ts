@@ -123,25 +123,6 @@ export class MiddlewareHandlersRegistryEntryInternal<
     return this._middlewareMethod;
   }
 
-  // private _splitMiddlewarePath(): void {
-  //   const splitResult = this._middlewareGenericPath.split(" ");
-  //   let method: string = '';
-  //   let pathSegments: string[] = [];
-  //   if (splitResult.length === 2) {
-  //     method = splitResult[0].trim();
-  //     if (method === '') {
-  //       throw new Error(`Invalid middleware path format: "${this._middlewareGenericPath}". HTTP method is empty.`);
-  //     }
-  //     pathSegments = splitResult[1]
-  //       .split("/")
-  //       .map(segment => segment.trim())
-  //       .filter(segment => segment !== '');
-  //   }
-
-  //   this._middlewareMethod = method;
-  //   this._middlewarePathSegments = pathSegments;
-  // }
-
   private readonly _middlewareSchemas: MiddlewareHandlerSchemas;
   public get middlewareSchemas(): MiddlewareHandlerSchemas {
     return this._middlewareSchemas;
