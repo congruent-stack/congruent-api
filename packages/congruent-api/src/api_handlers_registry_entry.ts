@@ -8,6 +8,7 @@ import z from "zod";
 import { TypedPathParams } from "./typed_path_params.js";
 import { IEndpointHandlerDecorator } from "./endpoint_handler_decorator.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
+import { EndpointHandlerContext } from "./handler_context.js";
 
 export type PrepareRegistryEntryCallback<
   TDef extends IHttpMethodEndpointDefinition & ValidateHttpMethodEndpointDefinition<TDef>,
@@ -165,7 +166,7 @@ export class MethodEndpointHandlerRegistryEntry<
       body: TDef['body'] extends z.ZodType ? z.output<TDef['body']> : null; // z.output because the handler receives the parsed input
     }
   ): Promise<any> {
-    return this.triggerNoStaticTypeCheck(diScope, requestObject as any);
+    return this.triggerNoStaticTypeCheck(diScope, requestObject as any, {});
   }
 
   async exec(
@@ -218,6 +219,7 @@ export class MethodEndpointHandlerRegistryEntry<
   async triggerNoStaticTypeCheck(
     diScope: DIScope<any>,
     requestObject: HttpRequestObject,
+    context: EndpointHandlerContext<any>
   ): Promise<any> {
     if (!this._handler) {
       throw new Error('Handler not set for this endpoint');
@@ -245,6 +247,8 @@ export class MethodEndpointHandlerRegistryEntry<
 
     const path = this._methodEndpoint.createPath(requestObject.pathParams);
 
+    Object.assign(context, this._injection(diScope));
+
     return await this._handler({ 
       method: this._methodEndpoint.method,
       path,
@@ -254,7 +258,7 @@ export class MethodEndpointHandlerRegistryEntry<
       pathParams: requestObject.pathParams as any, 
       query,
       body,
-    }, this._injection(diScope) as any);
+    }, context);
   }
 }
 

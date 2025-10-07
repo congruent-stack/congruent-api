@@ -57,7 +57,7 @@ export async function triggerEndpointDecoratorNoStaticTypeCheck(
   endpoint: HttpMethodEndpoint<any>,
   decorator: IEndpointHandlerDecorator<any>,
   requestObject: HttpRequestObject, 
-  next: () => Promise<void>
+  context: DecoratorHandlerContext
 ) {
   let badRequestResponse: HttpResponseObject | null = null;
   
@@ -87,14 +87,14 @@ export async function triggerEndpointDecoratorNoStaticTypeCheck(
     genericPath: endpoint.genericPath,
     path,
     pathSegments: endpoint.pathSegments,
-  }, { next: next as any });
+  }, context);
 }
 
 export async function triggerMiddlewareDecoratorNoStaticTypeCheck(
   middlewareEntry: MiddlewareHandlersRegistryEntryInternal<any, unknown>,
   decorator: IEndpointHandlerDecorator<any>,
   requestObject: HttpRequestObject, 
-  next: () => Promise<void>
+  context: DecoratorHandlerContext
 ) {
   let badRequestResponse: HttpResponseObject | null = null;
   
@@ -124,7 +124,7 @@ export async function triggerMiddlewareDecoratorNoStaticTypeCheck(
     genericPath: middlewareEntry.genericPath,
     path,
     pathSegments: middlewareEntry.pathSegments,
-  }, { next: next as any });
+  }, context);
 }
 
 function decoratorParseRequestDefinitionField<

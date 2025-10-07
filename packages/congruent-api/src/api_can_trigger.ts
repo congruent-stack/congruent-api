@@ -5,7 +5,7 @@ export interface ICanTriggerAsync {
   triggerNoStaticTypeCheck(
     diScope: DIScope<any>,
     requestObject: HttpRequestObject,
-    next?: () => Promise<void>
+    context: any
   ): Promise<any>;
 
   get genericPath(): string;

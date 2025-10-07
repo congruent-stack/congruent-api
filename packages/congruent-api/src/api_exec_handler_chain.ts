@@ -27,14 +27,10 @@ export async function execHandlerChain(
     }
     const currResponse = await current.triggerNoStaticTypeCheck(
       diScope,
-      // input, TODO: use this instead of creating a new object
+      input as any,
       {
-        headers: input.headers,
-        pathParams: input.pathParams,
-        body: input.body,
-        query: input.query,
-      },
-      next // final does not have a third parameter, so it will be ignored there
+        next 
+      }
     );
     if (response) {
       // shortcircuit: avoid calling next when response is already set

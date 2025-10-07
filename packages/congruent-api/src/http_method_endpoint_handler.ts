@@ -11,4 +11,4 @@ export type HttpMethodEndpointHandler<
   (input: HttpMethodEndpointHandlerInput<TDef, TPathParams>, context: EndpointHandlerContext<TInjected>) => Promise<HttpMethodEndpointHandlerOutput<TDef>>;
 
 export type ClientHttpMethodEndpointHandler = 
-  (input: ClientHttpMethodEndpointHandlerInput, context: EndpointHandlerContext) => Promise<ClientHttpMethodEndpointHandlerOutput>;
+  (input: ClientHttpMethodEndpointHandlerInput) => Promise<ClientHttpMethodEndpointHandlerOutput>;

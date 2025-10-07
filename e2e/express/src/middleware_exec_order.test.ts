@@ -200,13 +200,13 @@ describe("Express middleware execution order", () => {
     const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
     expect(inProcClientItems2).toEqual(RES_2_ITEMS);
 
-    const directResult = await route(apiReg, 'GET /some/other/path').triggerNoStaticTypeCheck(
+    const directResult = await route(apiReg, 'GET /some/other/path').trigger(
       testContainer.createScope(), 
       {
         headers: {}, 
         pathParams: {}, 
-        query: {}, 
-        body: {}
+        query: null, 
+        body: null
       });
     expect(directResult.code).toBe(HttpStatusCode.OK_200);
   });
@@ -351,13 +351,13 @@ describe("Express middleware execution order", () => {
       ['h-2-mock']
     );
 
-    const directResult = await route(apiReg, 'GET /some/other/path').triggerNoStaticTypeCheck(
+    const directResult = await route(apiReg, 'GET /some/other/path').trigger(
       testContainer.createScope(), 
       {
         headers: {}, 
         pathParams: {}, 
-        query: {}, 
-        body: {}
+        query: null, 
+        body: null
       });
     expect(directResult.code).toBe(HttpStatusCode.OK_200);
   });
@@ -521,13 +521,13 @@ describe("Express middleware execution order", () => {
     const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
     expect(inProcClientItems2).toEqual(RES_2_ITEMS);
 
-    const directResult = await route(apiReg, 'GET /some/other/path').triggerNoStaticTypeCheck(
+    const directResult = await route(apiReg, 'GET /some/other/path').trigger(
       testContainer.createScope(), 
       {
         headers: {}, 
         pathParams: {}, 
-        query: {}, 
-        body: {} //TODO: null is not assignable to object 
+        query: null, 
+        body: null
       });
     expect(directResult.code).toBe(HttpStatusCode.OK_200);
 

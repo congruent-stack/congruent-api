@@ -60,13 +60,13 @@ export function createInProcApiClient<
     endpointHandlerEntry.decoratorFactories.forEach((decoratorFactory) => {
       allHandlerEntries.push({
         genericPath: endpointHandlerEntry.genericPath,
-        triggerNoStaticTypeCheck: async (diScope: DIScope<any>, requestObject, next) => {
+        triggerNoStaticTypeCheck: async (diScope: DIScope<any>, requestObject, context) => {
           const decorator = decoratorFactory(diScope);
           return await triggerEndpointDecoratorNoStaticTypeCheck(
             endpointHandlerEntry.methodEndpoint,
             decorator,
             requestObject,
-            next!
+            context
           );
         }
       });
@@ -105,13 +105,13 @@ function addMiddlewareDecorators<
   mwEntry.decoratorFactories.forEach((decoratorFactory) => {
     mwHandlers.push({
       genericPath: mwEntry.genericPath,
-      triggerNoStaticTypeCheck: async (diScope: DIScope<any>, requestObject, next) => {
+      triggerNoStaticTypeCheck: async (diScope: DIScope<any>, requestObject, context) => {
         const decorator = decoratorFactory(diScope);
         return await triggerMiddlewareDecoratorNoStaticTypeCheck(
           mwEntry,
           decorator,
           requestObject,
-          next!
+          context
         );
       }
     });

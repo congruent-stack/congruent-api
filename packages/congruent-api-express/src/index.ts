@@ -41,13 +41,14 @@ export function createExpressRegistry<
           }
           // @ts-ignore
           req.pathParams = req.params;
-          const nextAsync = next as () => Promise<void>;
           const decorator = decoratorFactory(res.locals.diScope);
           const haltResult = await triggerEndpointDecoratorNoStaticTypeCheck(
             entry.methodEndpoint,
             decorator,
             req as any,
-            nextAsync
+            {
+              next: next as () => Promise<void>
+            }
           );
           if (haltResult && isHttpResponseObject(haltResult)) {
             const haltResultHeaders = new Map(
@@ -67,7 +68,8 @@ export function createExpressRegistry<
         req.pathParams = req.params;
         const result = await entry.triggerNoStaticTypeCheck(
           res.locals.diScope, 
-          req as any
+          req as any,
+          {}
         );
         const resultHeaders = new Map(
           Object.entries(result.headers || {})
@@ -88,13 +90,14 @@ export function createExpressRegistry<
           }
           // @ts-ignore
           req.pathParams = req.params;
-          const nextAsync = next as () => Promise<void>;
           const decorator = decoratorFactory(res.locals.diScope);
           const haltResult = await triggerMiddlewareDecoratorNoStaticTypeCheck(
             entry,
             decorator,
             req as any,
-            nextAsync
+            {
+              next: next as () => Promise<void>
+            }
           );
           if (haltResult && isHttpResponseObject(haltResult)) {
             const haltResultHeaders = new Map(
@@ -112,11 +115,12 @@ export function createExpressRegistry<
         }
         // @ts-ignore
         req.pathParams = req.params;
-        const nextAsync = next as () => Promise<void>;
         const haltResult = await entry.triggerNoStaticTypeCheck(
           res.locals.diScope, 
           req as any, 
-          nextAsync
+          { 
+            next: next as () => Promise<void> 
+          }
         );
         if (haltResult && isHttpResponseObject(haltResult)) {
           const haltResultHeaders = new Map(

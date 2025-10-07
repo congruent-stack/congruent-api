@@ -24,8 +24,8 @@ export type ClientHttpMethodEndpointHandlerInput = {
   genericPath: string;
   headers: Record<string, string>;
   pathParams: Record<string, string>;
-  query?: any;
-  body?: any;
+  query: any;
+  body: any;
 };
 
 export type HttpRequestObject = {

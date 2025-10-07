@@ -179,15 +179,15 @@ export class MiddlewareHandlersRegistryEntryInternal<
       query: TMiddlewareSchemas['query'] extends z.ZodType ? z.output<TMiddlewareSchemas['query']> : null; // z.output because the handler receives the parsed input
       body: TMiddlewareSchemas['body'] extends z.ZodType ? z.output<TMiddlewareSchemas['body']> : null; // z.output because the handler receives the parsed input
     }, 
-    next: () => Promise<void>
+    context: MiddlewareHandlerContext<any>
   ): Promise<any> {
-    return this.triggerNoStaticTypeCheck(diScope, requestObject as any, next);
+    return this.triggerNoStaticTypeCheck(diScope, requestObject as any, context);
   }
 
   async triggerNoStaticTypeCheck(
     diScope: DIScope<any>,
     requestObject: HttpRequestObject, 
-    next: () => Promise<void>
+    context: MiddlewareHandlerContext<any>
   ): Promise<any> {
     let badRequestResponse: HttpResponseObject | null = null;
     
@@ -211,6 +211,8 @@ export class MiddlewareHandlersRegistryEntryInternal<
 
     const path = this.createPath(requestObject.pathParams);
 
+    Object.assign(context, this._injection(diScope));
+
     return await this._handler(
       { 
         method: this.method as HttpMethod, // TODO: might be empty, as middleware can be registered with path only, without method
@@ -221,12 +223,7 @@ export class MiddlewareHandlersRegistryEntryInternal<
         pathParams: requestObject.pathParams,
         query,
         body,
-      }, 
-      { 
-        next,
-        ...this._injection(diScope)
-      }
-    );
+      }, context);
   }
 
   public createPath(pathParams: Record<string, string>): string {
