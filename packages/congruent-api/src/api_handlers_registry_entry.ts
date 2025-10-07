@@ -120,7 +120,7 @@ export class MethodEndpointHandlerRegistryEntry<
   decorate<
     TDecorator extends { 
       // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
-      handle(input: any, next: any): Promise<any> 
+      handle(input: any, context: any): Promise<any> 
     }
   > (
     decoratorFactory:
@@ -138,7 +138,7 @@ export class MethodEndpointHandlerRegistryEntry<
   decorateWith<
     TDecorator extends { 
       // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
-      handle(input: any, next: any): Promise<any> 
+      handle(input: any, context: any): Promise<any> 
     }
   > (
     decoratorStaticMethodFactory: (
@@ -212,8 +212,7 @@ export class MethodEndpointHandlerRegistryEntry<
       pathParams: requestObject.pathParams as any, 
       query,
       body,
-      injected,
-    }) as any;
+    }, injected as any) as any;
   }
 
   async triggerNoStaticTypeCheck(
@@ -255,8 +254,7 @@ export class MethodEndpointHandlerRegistryEntry<
       pathParams: requestObject.pathParams as any, 
       query,
       body,
-      injected: this._injection(diScope),
-    });
+    }, this._injection(diScope) as any);
   }
 }
 

@@ -2,7 +2,7 @@ import { describe, test, expect } from "vitest";
 import z from "zod";
 import express from "express";
 import request from "supertest";
-import { apiContract, createInProcApiClient, createRegistry, DecoratorHandlerInput, IDecoratorHandlerSchemas, DIContainer, endpoint, HttpStatusCode, IEndpointHandlerDecorator, middleware, response, route } from "@congruent-stack/congruent-api";
+import { apiContract, createInProcApiClient, createRegistry, DecoratorHandlerInput, IDecoratorHandlerSchemas, DIContainer, endpoint, HttpStatusCode, IEndpointHandlerDecorator, middleware, response, route, DecoratorHandlerContext } from "@congruent-stack/congruent-api";
 import { createExpressRegistry } from "@congruent-stack/congruent-api-express";
 import { createFetchClient } from "@congruent-stack/congruent-api-fetch";
 import type { AddressInfo } from "node:net";
@@ -42,18 +42,18 @@ describe("Express middleware execution order", () => {
 
     app.get(
       '/some/path/:someparam', 
-      (_req, res, next) => {
+      async (_req, res, next) => {
         res.locals.items.push("dec-1");
-        next();
+        await next();
       },
-      (req, res) => {
+      async (req, res) => {
         res.locals.items.push("h-1");
-        res.status(200).set('x-items', JSON.stringify(res.locals.items)).json(req.params['someparam']);
+        await res.status(200).set('x-items', JSON.stringify(res.locals.items)).json(req.params['someparam']);
       });
 
-    app.get('/some/other/path', (_req, res) => {
+    app.get('/some/other/path', async (_req, res) => {
       res.locals.items.push("h-2");
-      res.status(200).set('x-items', JSON.stringify(res.locals.items)).json('some-other-path');
+      await res.status(200).set('x-items', JSON.stringify(res.locals.items)).json('some-other-path');
     });
 
     const res1 = await request(app).get("/some/path/some-value");
@@ -112,36 +112,36 @@ describe("Express middleware execution order", () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-1');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-1');
+        await context.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-2');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-2');
+        await context.next();
       });
 
     middleware(apiReg, '/some')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-3');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-3');
+        await context.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-4');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-4');
+        await context.next();
       });
 
     class MyDecoratorSchemas implements IDecoratorHandlerSchemas {
@@ -158,9 +158,9 @@ describe("Express middleware execution order", () => {
         this._items = items;
       }
       
-      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
+      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, context: DecoratorHandlerContext): Promise<void> {
         this._items.push('dec-1');
-        await next();
+        await context.next();
       }
     }
 
@@ -169,18 +169,18 @@ describe("Express middleware execution order", () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req) => {
-        req.injected.items.push('h-1');
-        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: req.pathParams['someparam'] };
+      .register(async (req, context) => {
+        context.items.push('h-1');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(context.items) }, body: req.pathParams['someparam'] };
       });
 
     route(apiReg, 'GET /some/other/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req) => {
-        req.injected.items.push('h-2');
-        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: 'some-other-path' };
+      .register(async (req, context) => {
+        context.items.push('h-2');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(context.items) }, body: 'some-other-path' };
       });
 
     const testContainer = container.createTestClone()
@@ -254,36 +254,36 @@ describe("Express middleware execution order", () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-1');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-1');
+        await context.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-2');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-2');
+        await context.next();
       });
 
     middleware(apiReg, '/some')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-3');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-3');
+        await context.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-4');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-4');
+        await context.next();
       });
 
     class MyDecoratorSchemas implements IDecoratorHandlerSchemas {
@@ -296,9 +296,9 @@ describe("Express middleware execution order", () => {
         this._items = items;
       }
       
-      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
+      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, context: DecoratorHandlerContext): Promise<void> {
         this._items.push('dec-1');
-        await next();
+        await context.next();
       }
     }
 
@@ -307,18 +307,18 @@ describe("Express middleware execution order", () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req) => {
-        req.injected.items.push('h-1');
-        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: req.pathParams['someparam'] };
+      .register(async (req, context) => {
+        context.items.push('h-1');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(context.items) }, body: req.pathParams['someparam'] };
       });
 
     route(apiReg, 'GET /some/other/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req) => {
-        req.injected.items.push('h-2');
-        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: 'some-other-path' };
+      .register(async (req, context) => {
+        context.items.push('h-2');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(context.items) }, body: 'some-other-path' };
       });
 
     const testContainer = container.createTestClone()
@@ -404,36 +404,36 @@ describe("Express middleware execution order", () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-1');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-1');
+        await context.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-2');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-2');
+        await context.next();
       });
 
     middleware(apiReg, '/some')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-3');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-3');
+        await context.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-4');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-4');
+        await context.next();
       });
 
     class MyDecoratorSchemas implements IDecoratorHandlerSchemas {
@@ -450,9 +450,9 @@ describe("Express middleware execution order", () => {
         this._items = items;
       }
       
-      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
+      async handle(req: DecoratorHandlerInput<MyDecoratorSchemas>, context: DecoratorHandlerContext): Promise<void> {
         this._items.push('dec-1');
-        await next();
+        await context.next();
       }
     }
 
@@ -461,18 +461,18 @@ describe("Express middleware execution order", () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req) => {
-        req.injected.items.push('h-1');
-        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: req.pathParams['someparam'] };
+      .register(async (req, context) => {
+        context.items.push('h-1');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(context.items) }, body: req.pathParams['someparam'] };
       });
 
     const someOtherPathRoute = route(apiReg, 'GET /some/other/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req) => {
-        req.injected.items.push('h-2');
-        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(req.injected.items) }, body: 'some-other-path' };
+      .register(async (req, context) => {
+        context.items.push('h-2');
+        return { code: HttpStatusCode.OK_200, headers: { 'x-items': JSON.stringify(context.items) }, body: 'some-other-path' };
       });
 
     const res1 = await request(app).get("/some/path/some-value");

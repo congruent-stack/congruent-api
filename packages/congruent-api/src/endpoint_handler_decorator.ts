@@ -7,6 +7,7 @@ import { HttpMethodEndpointResponse } from "./http_method_endpoint_response.js";
 import { CreateHandlerOutput, HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 import { MiddlewareHandlersRegistryEntryInternal } from "./api_middleware.js";
+import { DecoratorHandlerContext } from "./handler_context.js";
 
 export interface IDecoratorHandlerSchemas {
   headers?: z.ZodType;
@@ -42,7 +43,7 @@ export interface IEndpointHandlerDecorator<
 > {
   handle(
     input: DecoratorHandlerInput<TDecoratorSchemas>, 
-    next: () => Promise<void>
+    context: DecoratorHandlerContext
   ): Promise<DecoratorHandlerOutput<TDecoratorSchemas>>;
 }
 
@@ -86,7 +87,7 @@ export async function triggerEndpointDecoratorNoStaticTypeCheck(
     genericPath: endpoint.genericPath,
     path,
     pathSegments: endpoint.pathSegments,
-  }, next as any);
+  }, { next: next as any });
 }
 
 export async function triggerMiddlewareDecoratorNoStaticTypeCheck(
@@ -123,7 +124,7 @@ export async function triggerMiddlewareDecoratorNoStaticTypeCheck(
     genericPath: middlewareEntry.genericPath,
     path,
     pathSegments: middlewareEntry.pathSegments,
-  }, next as any);
+  }, { next: next as any });
 }
 
 function decoratorParseRequestDefinitionField<

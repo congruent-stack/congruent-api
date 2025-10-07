@@ -15,6 +15,7 @@ import {
   IEndpointHandlerDecorator,
   DecoratorHandlerInput,
   DecoratorHandlerOutput,
+  DecoratorHandlerContext,
   // decoratorFactory
 } from '@congruent-stack/congruent-api';
 import { createExpressRegistry } from '@congruent-stack/congruent-api-express';
@@ -121,9 +122,12 @@ describe('api_client', () => {
     static create(diScope: ReturnType<typeof container.createScope>): TimeProfilerDecorator {
       return new TimeProfilerDecorator();
     }
-    async handle(input: DecoratorHandlerInput<TimeProfilerDecoratorSchemas>, next: () => Promise<void>): Promise<DecoratorHandlerOutput<TimeProfilerDecoratorSchemas>> {
+    async handle(
+      input: DecoratorHandlerInput<TimeProfilerDecoratorSchemas>, 
+      context: DecoratorHandlerContext
+    ): Promise<DecoratorHandlerOutput<TimeProfilerDecoratorSchemas>> {
       const start = performance.now();
-      await next();
+      await context.next();
       const end = performance.now();
       // console.log(`Request for "${input.path}" took ${end - start} ms`);
       // return {
@@ -145,28 +149,28 @@ describe('api_client', () => {
       responses: {
         [HttpStatusCode.Unauthorized_401]: response({ body: z.object({ message: z.string() }) })
       }
-    }, async (req, next) => {
+    }, async (req, context) => {
       const sessionToken = req.headers['x-session-token'];
-      const failureReason = await req.injected.sessionUserSvc.loginAsync(sessionToken);
+      const failureReason = await context.sessionUserSvc.loginAsync(sessionToken);
       if (failureReason) {
         return {
           code: HttpStatusCode.Unauthorized_401,
           body: { message: failureReason }
         }
       }
-      await next();
+      await context.next();
     })
 
   route(apiReg, 'POST /api/foo/:someParam')
     .inject(scope => ({
       sessionUser: scope.getSessionUserProvider()
     }))
-    .register(async (req) => {
+    .register(async (req, context) => {
       return { 
         code: HttpStatusCode.OK_200, 
         body: {
           myparam: req.pathParams.someParam,
-          userName: req.injected.sessionUser.current.name,
+          userName: context.sessionUser.current.name,
           bar: req.body.bar,
           baz: req.body.baz
         }
@@ -191,14 +195,14 @@ describe('api_client', () => {
       this._sessionUser = sessionUser;
     }
     
-    async handle(req: DecoratorHandlerInput<EnforceAdminDecoratorSchemas>, next: () => Promise<void>): Promise<DecoratorHandlerOutput<EnforceAdminDecoratorSchemas>> {
+    async handle(req: DecoratorHandlerInput<EnforceAdminDecoratorSchemas>, context: DecoratorHandlerContext): Promise<DecoratorHandlerOutput<EnforceAdminDecoratorSchemas>> {
       if (!this._sessionUser.current.roles.includes('admin')) {
         return {
           code: HttpStatusCode.Forbidden_403,
           body: { requiredRoles: ['admin'] }
         };
       }
-      await next();
+      await context.next();
     }
   }
 
@@ -220,8 +224,8 @@ describe('api_client', () => {
       return new BadCreateSignatureDecorator();
     }
 
-    async handle(input: DecoratorHandlerInput<BadCreateSignatureDecoratorSchemas>, next: () => Promise<void>): Promise<DecoratorHandlerOutput<BadCreateSignatureDecoratorSchemas>> {
-      await next();
+    async handle(input: DecoratorHandlerInput<BadCreateSignatureDecoratorSchemas>, context: DecoratorHandlerContext): Promise<DecoratorHandlerOutput<BadCreateSignatureDecoratorSchemas>> {
+      await context.next();
     }
   }
 
@@ -242,8 +246,8 @@ describe('api_client', () => {
       return new BadSecondDecorator();
     }
 
-    async handle(input: string, next: () => Promise<void>): Promise<number> {
-      await next();
+    async handle(input: string, context: DecoratorHandlerContext): Promise<number> {
+      await context.next();
       return 42;
     }
   }

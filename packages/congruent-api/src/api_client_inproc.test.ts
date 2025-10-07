@@ -14,7 +14,8 @@ import {
   IDecoratorHandlerSchemas,
   IEndpointHandlerDecorator,
   DecoratorHandlerInput,
-  DecoratorHandlerOutput
+  DecoratorHandlerOutput,
+  DecoratorHandlerContext
 } from "./index.js";
 
 
@@ -121,9 +122,9 @@ describe('api_client_inproc', () => {
     static create(diScope: ReturnType<typeof dicontainer.createScope>): TimeProfilerDecorator {
       return new TimeProfilerDecorator();
     }
-    async handle(input: DecoratorHandlerInput<TimeProfilerDecoratorSchemas>, next: () => Promise<void>): Promise<DecoratorHandlerOutput<TimeProfilerDecoratorSchemas>> {
+    async handle(input: DecoratorHandlerInput<TimeProfilerDecoratorSchemas>, context: DecoratorHandlerContext): Promise<DecoratorHandlerOutput<TimeProfilerDecoratorSchemas>> {
       const start = performance.now();
-      await next();
+      await context.next();
       const end = performance.now();
       // console.log(`api_client_inproc_test: Request for "${input.path}" took ${end - start} ms`);
       // return {
@@ -147,15 +148,15 @@ describe('api_client_inproc', () => {
         // .nullable(), -> field explicitly `null`
         // .nullish(),  -> field not provided, explicitly `null`, or explicitly `undefined`
       responses: {}
-    }, async (req, next) => {
-      req.injected.loggerSvc.log(`tenant id from header = ${req.headers['x-tenant-id']}`);
+    }, async (req, context) => {
+      context.loggerSvc.log(`tenant id from header = ${req.headers['x-tenant-id']}`);
       if (req.body) {
-        req.injected.loggerSvc.log(`tenant id from body = ${req.body.tenantId}`);
+        context.loggerSvc.log(`tenant id from body = ${req.body.tenantId}`);
       } else {
-        req.injected.loggerSvc.log('No body provided');
+        context.loggerSvc.log('No body provided');
       }
-      req.injected.loggerSvc.log('Middleware triggered for Pokemons API');
-      await next();
+      context.loggerSvc.log('Middleware triggered for Pokemons API');
+      await context.next();
     });
 
   route(pokedexApiReg, 'GET /pokemons/:id')
@@ -163,9 +164,9 @@ describe('api_client_inproc', () => {
       pokemonSvc: scope.getPokemonSvc(),
       loggerSvc: scope.getLoggerSvc(),
     }))
-    .register(async (req) => {
-      req.injected.loggerSvc.log(`tenant id from x-tenant-id header = ${req.headers["x-tenant-id"]}`);
-      const pokemon = req.injected.pokemonSvc.getPokemon(parseInt(req.pathParams.id, 10));
+    .register(async (req, context) => {
+      context.loggerSvc.log(`tenant id from x-tenant-id header = ${req.headers["x-tenant-id"]}`);
+      const pokemon = context.pokemonSvc.getPokemon(parseInt(req.pathParams.id, 10));
       if (!pokemon) {
         return { code: HttpStatusCode.NotFound_404, body: { userMessage: `Pokemon with ID ${req.pathParams.id} not found` } };
       }
@@ -187,9 +188,9 @@ describe('api_client_inproc', () => {
     .inject((scope) => ({
       loggerSvc: scope.getLoggerSvc(),
     }))
-    .register(async (req) => {
+    .register(async (req, context) => {
       // TODO: typesafe req.headers, now is :Record<string, string>
-      req.injected.loggerSvc.log(`ROUTE HANDLER: tenant id from x-tenant-id header = ${req.headers['x-tenant-id']}, body tenant id = ${req.body.tenantId}`);
+      context.loggerSvc.log(`ROUTE HANDLER: tenant id from x-tenant-id header = ${req.headers['x-tenant-id']}, body tenant id = ${req.body.tenantId}`);
       return {
         code: HttpStatusCode.Created_201,
         body: 999

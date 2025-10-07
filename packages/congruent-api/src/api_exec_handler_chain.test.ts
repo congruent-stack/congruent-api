@@ -11,6 +11,7 @@ import { route } from './api_routing';
 import { execHandlerChain } from './api_exec_handler_chain';
 import { ICanTriggerAsync } from './api_can_trigger';
 import { DecoratorHandlerInput, IDecoratorHandlerSchemas, IEndpointHandlerDecorator } from './endpoint_handler_decorator';
+import { DecoratorHandlerContext } from './handler_context';
 
 describe('api_exec_handler_chain', () => {
 
@@ -51,36 +52,36 @@ describe('api_exec_handler_chain', () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-1');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-1');
+        await context.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-2');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-2');
+        await context.next();
       });
 
     middleware(apiReg, '/some')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-3');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-3');
+        await context.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, next) => {
-        req.injected.items.push('mw-4');
-        await next();
+      .register({ responses: {} }, async (req, context) => {
+        context.items.push('mw-4');
+        await context.next();
       });
 
     class MyDecoratorSchemas implements IDecoratorHandlerSchemas {
@@ -97,9 +98,9 @@ describe('api_exec_handler_chain', () => {
         this._items = items;
       }
 
-      async handle(_req: DecoratorHandlerInput<MyDecoratorSchemas>, next: () => Promise<void>): Promise<void> {
+      async handle(_req: DecoratorHandlerInput<MyDecoratorSchemas>, context: DecoratorHandlerContext): Promise<void> {
         this._items.push('dec-1');
-        await next();
+        await context.next();
       }
     }
 
@@ -108,8 +109,8 @@ describe('api_exec_handler_chain', () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req) => {
-        req.injected.items.push('h-1');
+      .register(async (req, context) => {
+        context.items.push('h-1');
         return { code: HttpStatusCode.OK_200, body: req.pathParams['someparam'] };
       });
 
@@ -117,8 +118,8 @@ describe('api_exec_handler_chain', () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req) => {
-        req.injected.items.push('h-2');
+      .register(async (req, context) => {
+        context.items.push('h-2');
         return { code: HttpStatusCode.OK_200, body: 'some-other-path' };
       });
 
@@ -204,9 +205,9 @@ describe('api_exec_handler_chain', () => {
         responses: {
           [HttpStatusCode.InternalServerError_500]: response({ body: z.string() }),
         } 
-      }, async (_req, next) => {
+      }, async (_req, context) => {
         try {
-          await next();
+          await context.next();
         } catch (err) {
           return { 
             code: HttpStatusCode.InternalServerError_500, 

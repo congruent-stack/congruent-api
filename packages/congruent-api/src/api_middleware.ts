@@ -11,6 +11,7 @@ import { HttpMethodEndpointResponse } from "./http_method_endpoint_response.js";
 import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 import { IEndpointHandlerDecorator } from "./endpoint_handler_decorator.js";
+import { MiddlewareHandlerContext } from "./handler_context.js";
 
 export type MiddlewareHandlerSchemas = {
   headers?: z.ZodType;
@@ -21,8 +22,7 @@ export type MiddlewareHandlerSchemas = {
 
 export type MiddlewareHandlerInput<
   TPathParams extends string,
-  TMiddlewareSchemas extends MiddlewareHandlerSchemas,
-  TInjected
+  TMiddlewareSchemas extends MiddlewareHandlerSchemas
 > = {
   method: HttpMethod;
   pathSegments: readonly string[];
@@ -32,7 +32,6 @@ export type MiddlewareHandlerInput<
   pathParams: TypedPathParams<TPathParams>;
   query: TMiddlewareSchemas['query'] extends z.ZodType ? z.output<TMiddlewareSchemas['query']> : null; // z.output because the handler receives the parsed input
   body: TMiddlewareSchemas['body'] extends z.ZodType ? z.output<TMiddlewareSchemas['body']> : null; // z.output because the handler receives the parsed input
-  injected: Readonly<TInjected>;
 };
 
 export type MiddlewareHandlerOutput<TMiddlewareSchemas extends MiddlewareHandlerSchemas> =
@@ -44,7 +43,7 @@ export type MiddlewareHandlerOutput<TMiddlewareSchemas extends MiddlewareHandler
         : never;
   }[keyof TMiddlewareSchemas['responses'] & HttpStatusCode];
 
-export type MiddlewareHandlerInputInternal<TInjected> = {
+export type MiddlewareHandlerInputInternal = {
   method: HttpMethod;
   pathSegments: readonly string[];
   path: string;
@@ -53,7 +52,6 @@ export type MiddlewareHandlerInputInternal<TInjected> = {
   pathParams: Record<string, string>;
   query: Record<string, any> | null;
   body: Record<string, any> | null;
-  injected: Readonly<TInjected>;
 };
 
 export type MiddlewareHandler<
@@ -61,13 +59,13 @@ export type MiddlewareHandler<
   TMiddlewareSchemas extends MiddlewareHandlerSchemas,
   TInjected
 > = (
-  input: MiddlewareHandlerInput<TPathParams, TMiddlewareSchemas, TInjected>,
-  next: () => Promise<void>
+  input: MiddlewareHandlerInput<TPathParams, TMiddlewareSchemas>,
+  context: MiddlewareHandlerContext<TInjected>
 ) => Promise<MiddlewareHandlerOutput<TMiddlewareSchemas>>;
 
 export type MiddlewareHandlerInternal<TInjected> = (
-  input: MiddlewareHandlerInputInternal<TInjected>,
-  next: () => Promise<void>
+  input: MiddlewareHandlerInputInternal,
+  context: MiddlewareHandlerContext<TInjected>
 ) => Promise<HttpResponseObject | void>;
 
 export function middleware<
@@ -223,9 +221,11 @@ export class MiddlewareHandlersRegistryEntryInternal<
         pathParams: requestObject.pathParams,
         query,
         body,
-        injected: this._injection(diScope),
       }, 
-      next
+      { 
+        next,
+        ...this._injection(diScope)
+      }
     );
   }
 
@@ -323,7 +323,7 @@ export class MiddlewareHandlersRegistryEntry<
   decorate<
     TDecorator extends { 
       // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
-      handle(input: any, next: any): Promise<any> 
+      handle(input: any, context: any): Promise<any> 
     }
   > (
     decoratorFactory:
@@ -341,7 +341,7 @@ export class MiddlewareHandlersRegistryEntry<
   decorateWith<
     TDecorator extends { 
       // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
-      handle(input: any, next: any): Promise<any> 
+      handle(input: any, context: any): Promise<any> 
     }
   > (
     decoratorStaticMethodFactory: (

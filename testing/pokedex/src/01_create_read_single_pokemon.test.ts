@@ -202,10 +202,10 @@ describe('Create and Read a single Pokemon', () => {
       responses: {
         [HttpStatusCode.InternalServerError_500]: response({ body: InternalServerErrorSchema }),
       }
-    }, async (_req, next) => {
+    }, async (_req, context) => {
       // console.log('Middleware (1) triggered');
       try {
-        await next();
+        await context.next();
       } catch (err) {
         // console.log('Middleware (1) caught error:', (err as Error).message);
         return { code: HttpStatusCode.InternalServerError_500, body: { traceid: crypto.randomUUID() } };
@@ -225,7 +225,7 @@ describe('Create and Read a single Pokemon', () => {
         [HttpStatusCode.BadRequest_400]: response({ body: CommonBadRequestSchema }),
         [HttpStatusCode.NotFound_404]: response({ body: NotFoundSchema }),
       }
-    }, async (req, next) => {
+    }, async (req, context) => {
       // console.log('Middleware (2) triggered');
       if (!req.headers['x-tenant-id']) {
         // console.log('Middleware (2) HALTING');
@@ -236,7 +236,7 @@ describe('Create and Read a single Pokemon', () => {
         // console.log('Middleware (2) HALTING');
         return { code: HttpStatusCode.BadRequest_400, body: { details: `Invalid Tenant ID` } };
       }
-      const tenant = req.injected.tenantsService.findTenantById(tenantId);
+      const tenant = context.tenantsService.findTenantById(tenantId);
       if (!tenant) {
         // console.log('Middleware (2) HALTING');
         return { 
@@ -249,8 +249,8 @@ describe('Create and Read a single Pokemon', () => {
           } 
         };
       }
-      req.injected.tenantStore.setTenant(tenant);
-      await next();
+      context.tenantStore.setTenant(tenant);
+      await context.next();
       // console.log('Middleware (2) finished');
     });
 
@@ -260,13 +260,13 @@ describe('Create and Read a single Pokemon', () => {
       someOtherService: scope.getSomeOtherService(),
       pokemonsService: scope.getPokemonsService(),
     }))
-    .register(async (req) => {
+    .register(async (req, context) => {
       // console.log('Handler for POST /pokemons triggered');
-      if (req.injected.tenantProvider.getUUID() !== req.injected.someOtherService.tenantStore.getUUID()) {
+      if (context.tenantProvider.getUUID() !== context.someOtherService.tenantStore.getUUID()) {
         throw new Error('SomeOtherService has different uuid than TenantProvider');
       }
-      const tenantid = req.injected.tenantProvider.getTenant().id;
-      if (req.injected.someOtherService.tenantStore.getTenant().id !== tenantid) {
+      const tenantid = context.tenantProvider.getTenant().id;
+      if (context.someOtherService.tenantStore.getTenant().id !== tenantid) {
         throw new Error('SomeOtherService has different tenant than TenantProvider');
       }
       if (req.headers['x-custom-header'] === 'throw-error') {
@@ -274,11 +274,11 @@ describe('Create and Read a single Pokemon', () => {
       }
       // const newPokemon = {
       //   id: pokemons.length + 1,
-      //   tenantId: req.injected.tenantProvider.getTenant().id,
+      //   tenantId: context.tenantProvider.getTenant().id,
       //   ...req.body,
       // };
       // pokemons.push(newPokemon);
-      const newPokemon = req.injected.pokemonsService.createPokemon({
+      const newPokemon = context.pokemonsService.createPokemon({
         tenantId: tenantid,
         ...req.body,
       });
@@ -306,7 +306,7 @@ describe('Create and Read a single Pokemon', () => {
       tenantProvider: scope.getTenantProvider(),
       pokemonsService: scope.getPokemonsService(),
     }))
-    .register(async (req) => {
+    .register(async (req, context) => {
       const pokemonId = parseInt(req.pathParams.id, 10);
       if (isNaN(pokemonId) || pokemonId < 1) {
         return { 
@@ -315,7 +315,7 @@ describe('Create and Read a single Pokemon', () => {
         };
       }
       //const pokemon = pokemons.find(p => p.id === pokemonId);
-      const pokemon = req.injected.pokemonsService.findPokemonById(pokemonId);
+      const pokemon = context.pokemonsService.findPokemonById(pokemonId);
       if (!pokemon) {
         return { 
           code: HttpStatusCode.NotFound_404, 
@@ -357,7 +357,7 @@ describe('Create and Read a single Pokemon', () => {
       }
     });
     if (postResponse.code !== HttpStatusCode.Created_201) {
-      assert.fail(201, postResponse.code, `Response code does not match`);
+      assert.fail(`Response code does not match. Expected: 201, Received: ${postResponse.code}`);
     }
     expect(postResponse.body).toBe(7);
     expect(postResponse.headers.location).toBe('/pokemons/7');
@@ -405,7 +405,7 @@ describe('Create and Read a single Pokemon', () => {
       getResponse.body.details
     }
     if (getResponse.code !== HttpStatusCode.NotFound_404) {
-      assert.fail(404, getResponse.code, `Response code does not match`);
+      assert.fail(`Response code does not match. Expected: 404, Received: ${getResponse.code}`);
     }
     expect(getResponse.body).toEqual({
       entity: "Pokemon",
@@ -442,7 +442,7 @@ describe('Create and Read a single Pokemon', () => {
       }
     });
     if (postResponse.code !== HttpStatusCode.NotFound_404) {
-      assert.fail(404, postResponse.code, `Response code does not match`);
+      assert.fail(`Response code does not match. Expected: 404, Received: ${postResponse.code}`);
     }
     expect(postResponse.body).toEqual({
       entity: "Tenant",

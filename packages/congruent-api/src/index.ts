@@ -20,3 +20,4 @@ export * from "./di_container.js";
 export * from "./api_client_inproc.js";
 export * from "./api_middleware.js";
 export * from "./endpoint_handler_decorator.js";
+export * from "./handler_context.js";
