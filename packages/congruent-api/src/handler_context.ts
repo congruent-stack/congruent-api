@@ -1,37 +1,32 @@
-/**
- * Handler context types for the Congruent API framework.
- * 
- * These context types are designed to be extensible, allowing additional
- * properties to be added in the future without breaking changes to handler signatures.
- */
+declare const __overlap__error__: unique symbol;
 
-/**
- * Context for endpoint handlers (the final handler in the chain).
- * Does not include a 'next' function since endpoint handlers are terminal.
- * Includes all injected dependencies via the TInjected type parameter.
- */
-export type EndpointHandlerContext<TInjected = {}> = {
-  // Future properties can be added here
-  // For now, this is an extensibility point
-} & Readonly<TInjected>;
+export type EndpointHandlerContextOverlapGuard<TInjected> =
+  // keep unknown in EndpointHandlerContext<unknown> to avoid distributing TInjected to all properties of EndpointHandlerContext
+  // we are only interested in the properties of EndpointHandlerContext itself, not in the properties of TInjected 
+  [Extract<keyof TInjected, keyof EndpointHandlerContext<unknown>>] extends [never]
+    ? {} // ok: no overlap
+    : { 
+      [__overlap__error__]: `❌ ERROR: property "${Extract<keyof TInjected & keyof EndpointHandlerContext<unknown>, string>}" already part of Endpoint Context. Choose a different property name to avoid conflict.` 
+    };
 
-/**
- * Context for middleware handlers.
- * Includes a 'next' function to pass control to the next handler in the chain.
- * Includes all injected dependencies via the TInjected type parameter.
- */
+export type MiddlewareHandlerContextOverlapGuard<TInjected> =
+  // keep unknown in MiddlewareHandlerContext<unknown> to avoid distributing TInjected to all properties of MiddlewareHandlerContext
+  // we are only interested in the properties of MiddlewareHandlerContext itself, not in the properties of TInjected
+  [Extract<keyof TInjected, keyof MiddlewareHandlerContext<unknown>>] extends [never]
+    ? {} // ok: no overlap
+    : { 
+      [__overlap__error__]: `❌ ERROR: property "${Extract<keyof TInjected & keyof MiddlewareHandlerContext<unknown>, string>}" already part of Middleware Context. Choose a different property name to avoid conflict.` 
+    };
+
 export type MiddlewareHandlerContext<TInjected = {}> = {
   next: () => Promise<void>;
-  // Future properties can be added here
 } & Readonly<TInjected>;
 
-/**
- * Context for decorator handlers.
- * Includes a 'next' function to pass control to the next handler in the chain.
- * Note: Decorators typically don't have injected dependencies directly,
- * as they are constructed with dependencies via their factory/create method.
- */
+export type EndpointHandlerContext<TInjected = {}> = {
+  // nothing yet
+} & Readonly<TInjected>;
+
+// this does not need a context overlap guard because decorators get their dependencies through constructor injection
 export type DecoratorHandlerContext = {
   next: () => Promise<void>;
-  // Future properties can be added here
 };

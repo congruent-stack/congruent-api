@@ -11,7 +11,7 @@ import { HttpMethodEndpointResponse } from "./http_method_endpoint_response.js";
 import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 import { IEndpointHandlerDecorator } from "./endpoint_handler_decorator.js";
-import { MiddlewareHandlerContext } from "./handler_context.js";
+import { MiddlewareHandlerContext, MiddlewareHandlerContextOverlapGuard } from "./handler_context.js";
 
 export type MiddlewareHandlerSchemas = {
   headers?: z.ZodType;
@@ -259,7 +259,11 @@ export class MiddlewareHandlersRegistryEntry<
     return this._injection;
   }
 
-  inject<TNewInjected>(injection: (diScope: ReturnType<TDIContainer['createScope']>) => TNewInjected): MiddlewareHandlersRegistryEntry<TApiDef, TDIContainer, TPathParams, TPath, TNewInjected> {
+  inject<TNewInjected>(
+    injection: (
+      diScope: ReturnType<TDIContainer['createScope']>
+    ) => TNewInjected & MiddlewareHandlerContextOverlapGuard<TNewInjected>
+  ): MiddlewareHandlersRegistryEntry<TApiDef, TDIContainer, TPathParams, TPath, TNewInjected> {
     this._injection = injection;
     return this as unknown as MiddlewareHandlersRegistryEntry<TApiDef, TDIContainer, TPathParams, TPath, TNewInjected>;
   }

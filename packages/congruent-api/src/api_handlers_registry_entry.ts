@@ -8,7 +8,7 @@ import z from "zod";
 import { TypedPathParams } from "./typed_path_params.js";
 import { IEndpointHandlerDecorator } from "./endpoint_handler_decorator.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
-import { EndpointHandlerContext } from "./handler_context.js";
+import { EndpointHandlerContext, EndpointHandlerContextOverlapGuard } from "./handler_context.js";
 
 export type PrepareRegistryEntryCallback<
   TDef extends IHttpMethodEndpointDefinition & ValidateHttpMethodEndpointDefinition<TDef>,
@@ -75,7 +75,11 @@ export class MethodEndpointHandlerRegistryEntry<
     return this._injection;
   }
 
-  inject<TNewInjected>(injection: (diScope: ReturnType<TDIContainer['createScope']>) => TNewInjected): MethodEndpointHandlerRegistryEntry<TDef, TDIContainer, TPathParams, TNewInjected> {
+  inject<TNewInjected>(
+    injection: (
+      diScope: ReturnType<TDIContainer['createScope']>
+    ) => TNewInjected & EndpointHandlerContextOverlapGuard<TNewInjected>
+  ): MethodEndpointHandlerRegistryEntry<TDef, TDIContainer, TPathParams, TNewInjected> {
     this._injection = injection;
     return this as unknown as MethodEndpointHandlerRegistryEntry<TDef, TDIContainer, TPathParams, TNewInjected>;
   }

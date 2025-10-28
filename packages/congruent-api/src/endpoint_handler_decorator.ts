@@ -1,5 +1,5 @@
 import z from "zod";
-import { DIContainer, DIScope } from "./di_container.js";
+import { DIContainer } from "./di_container.js";
 import { HttpMethodEndpoint, HttpMethodEndpointResponses } from "./http_method_endpoint.js";
 import { HttpMethod } from "./http_method_type.js";
 import { HttpStatusCode } from "./http_status_code.js";

@@ -53,6 +53,11 @@ describe('api_client', () => {
 
   // must be registered last, fallback for all unhandled routes
   middleware(apiReg, '') // empty string means it matches all possible routes
+    .inject((scope) => ({
+      foo: 'bar',
+      // next: 'str', // uncommenting this line causes a type error as expected, because 'next' is already defined in MiddlewareHandlerContext
+      // next: () => Promise.resolve(),
+    }))
     .register({
       responses: {
         [HttpStatusCode.NotFound_404]: response({ body: z.object({ userMessage: z.string() }) })
