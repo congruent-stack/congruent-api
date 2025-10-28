@@ -43,7 +43,7 @@ describe('api_client', () => {
   const apiReg = createExpressRegistry(app, container, contract);
 
   route(apiReg, 'POST /api/foo/:myparam')
-    .register(async (req, _context) => {
+    .register(async (req, _ctx) => {
       // console.log('Handler received param:', req.pathParams.myparam);
       return { 
         code: HttpStatusCode.OK_200, 
@@ -62,7 +62,7 @@ describe('api_client', () => {
       responses: {
         [HttpStatusCode.NotFound_404]: response({ body: z.object({ userMessage: z.string() }) })
       }
-    }, async (req, context) => {
+    }, async (req, ctx) => {
       // console.log('NOT FOUND middleware triggered for path:', req.path);
       return {
         code: HttpStatusCode.NotFound_404,

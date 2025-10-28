@@ -52,36 +52,36 @@ describe('api_exec_handler_chain', () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, context) => {
-        context.items.push('mw-1');
-        await context.next();
+      .register({ responses: {} }, async (req, ctx) => {
+        ctx.items.push('mw-1');
+        await ctx.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, context) => {
-        context.items.push('mw-2');
-        await context.next();
+      .register({ responses: {} }, async (req, ctx) => {
+        ctx.items.push('mw-2');
+        await ctx.next();
       });
 
     middleware(apiReg, '/some')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, context) => {
-        context.items.push('mw-3');
-        await context.next();
+      .register({ responses: {} }, async (req, ctx) => {
+        ctx.items.push('mw-3');
+        await ctx.next();
       });
 
     middleware(apiReg, '/some/path')
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register({ responses: {} }, async (req, context) => {
-        context.items.push('mw-4');
-        await context.next();
+      .register({ responses: {} }, async (req, ctx) => {
+        ctx.items.push('mw-4');
+        await ctx.next();
       });
 
     class MyDecoratorSchemas implements IDecoratorHandlerSchemas {
@@ -98,9 +98,9 @@ describe('api_exec_handler_chain', () => {
         this._items = items;
       }
 
-      async handle(_req: DecoratorHandlerInput<MyDecoratorSchemas>, context: DecoratorHandlerContext): Promise<void> {
+      async handle(_req: DecoratorHandlerInput<MyDecoratorSchemas>, ctx: DecoratorHandlerContext): Promise<void> {
         this._items.push('dec-1');
-        await context.next();
+        await ctx.next();
       }
     }
 
@@ -109,8 +109,8 @@ describe('api_exec_handler_chain', () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req, context) => {
-        context.items.push('h-1');
+      .register(async (req, ctx) => {
+        ctx.items.push('h-1');
         return { code: HttpStatusCode.OK_200, body: req.pathParams['someparam'] };
       });
 
@@ -118,8 +118,8 @@ describe('api_exec_handler_chain', () => {
       .inject((scope) => ({
         items: scope.getItems()
       }))
-      .register(async (req, context) => {
-        context.items.push('h-2');
+      .register(async (req, ctx) => {
+        ctx.items.push('h-2');
         return { code: HttpStatusCode.OK_200, body: 'some-other-path' };
       });
 
@@ -205,9 +205,9 @@ describe('api_exec_handler_chain', () => {
         responses: {
           [HttpStatusCode.InternalServerError_500]: response({ body: z.string() }),
         } 
-      }, async (_req, context) => {
+      }, async (_req, ctx) => {
         try {
-          await context.next();
+          await ctx.next();
         } catch (err) {
           return { 
             code: HttpStatusCode.InternalServerError_500, 

@@ -202,10 +202,10 @@ describe('Create and Read a single Pokemon', () => {
       responses: {
         [HttpStatusCode.InternalServerError_500]: response({ body: InternalServerErrorSchema }),
       }
-    }, async (_req, context) => {
+    }, async (_req, ctx) => {
       // console.log('Middleware (1) triggered');
       try {
-        await context.next();
+        await ctx.next();
       } catch (err) {
         // console.log('Middleware (1) caught error:', (err as Error).message);
         return { code: HttpStatusCode.InternalServerError_500, body: { traceid: crypto.randomUUID() } };
@@ -225,7 +225,7 @@ describe('Create and Read a single Pokemon', () => {
         [HttpStatusCode.BadRequest_400]: response({ body: CommonBadRequestSchema }),
         [HttpStatusCode.NotFound_404]: response({ body: NotFoundSchema }),
       }
-    }, async (req, context) => {
+    }, async (req, ctx) => {
       // console.log('Middleware (2) triggered');
       if (!req.headers['x-tenant-id']) {
         // console.log('Middleware (2) HALTING');
@@ -236,7 +236,7 @@ describe('Create and Read a single Pokemon', () => {
         // console.log('Middleware (2) HALTING');
         return { code: HttpStatusCode.BadRequest_400, body: { details: `Invalid Tenant ID` } };
       }
-      const tenant = context.tenantsService.findTenantById(tenantId);
+      const tenant = ctx.tenantsService.findTenantById(tenantId);
       if (!tenant) {
         // console.log('Middleware (2) HALTING');
         return { 
@@ -249,8 +249,8 @@ describe('Create and Read a single Pokemon', () => {
           } 
         };
       }
-      context.tenantStore.setTenant(tenant);
-      await context.next();
+      ctx.tenantStore.setTenant(tenant);
+      await ctx.next();
       // console.log('Middleware (2) finished');
     });
 
@@ -260,13 +260,13 @@ describe('Create and Read a single Pokemon', () => {
       someOtherService: scope.getSomeOtherService(),
       pokemonsService: scope.getPokemonsService(),
     }))
-    .register(async (req, context) => {
+    .register(async (req, ctx) => {
       // console.log('Handler for POST /pokemons triggered');
-      if (context.tenantProvider.getUUID() !== context.someOtherService.tenantStore.getUUID()) {
+      if (ctx.tenantProvider.getUUID() !== ctx.someOtherService.tenantStore.getUUID()) {
         throw new Error('SomeOtherService has different uuid than TenantProvider');
       }
-      const tenantid = context.tenantProvider.getTenant().id;
-      if (context.someOtherService.tenantStore.getTenant().id !== tenantid) {
+      const tenantid = ctx.tenantProvider.getTenant().id;
+      if (ctx.someOtherService.tenantStore.getTenant().id !== tenantid) {
         throw new Error('SomeOtherService has different tenant than TenantProvider');
       }
       if (req.headers['x-custom-header'] === 'throw-error') {
@@ -274,11 +274,11 @@ describe('Create and Read a single Pokemon', () => {
       }
       // const newPokemon = {
       //   id: pokemons.length + 1,
-      //   tenantId: context.tenantProvider.getTenant().id,
+      //   tenantId: ctx.tenantProvider.getTenant().id,
       //   ...req.body,
       // };
       // pokemons.push(newPokemon);
-      const newPokemon = context.pokemonsService.createPokemon({
+      const newPokemon = ctx.pokemonsService.createPokemon({
         tenantId: tenantid,
         ...req.body,
       });
@@ -306,7 +306,7 @@ describe('Create and Read a single Pokemon', () => {
       tenantProvider: scope.getTenantProvider(),
       pokemonsService: scope.getPokemonsService(),
     }))
-    .register(async (req, context) => {
+    .register(async (req, ctx) => {
       const pokemonId = parseInt(req.pathParams.id, 10);
       if (isNaN(pokemonId) || pokemonId < 1) {
         return { 
@@ -315,7 +315,7 @@ describe('Create and Read a single Pokemon', () => {
         };
       }
       //const pokemon = pokemons.find(p => p.id === pokemonId);
-      const pokemon = context.pokemonsService.findPokemonById(pokemonId);
+      const pokemon = ctx.pokemonsService.findPokemonById(pokemonId);
       if (!pokemon) {
         return { 
           code: HttpStatusCode.NotFound_404, 
