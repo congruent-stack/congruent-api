@@ -170,7 +170,7 @@ export class MethodEndpointHandlerRegistryEntry<
       body: TDef['body'] extends z.ZodType ? z.output<TDef['body']> : null; // z.output because the handler receives the parsed input
     }
   ): Promise<any> {
-    return this.triggerNoStaticTypeCheck(diScope, requestObject as any, {});
+    return this.triggerNoStaticTypeCheck(diScope, requestObject as any, { originalRequest: requestObject });
   }
 
   async exec(

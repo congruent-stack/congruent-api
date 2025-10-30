@@ -47,7 +47,8 @@ export function createExpressRegistry<
             decorator,
             req as any,
             {
-              next: next as () => Promise<void>
+              next: next as () => Promise<void>,
+              originalRequest: req
             }
           );
           if (haltResult && isHttpResponseObject(haltResult)) {
@@ -69,7 +70,9 @@ export function createExpressRegistry<
         const result = await entry.triggerNoStaticTypeCheck(
           res.locals.diScope, 
           req as any,
-          {}
+          {
+            originalRequest: req
+          }
         );
         const resultHeaders = new Map(
           Object.entries(result.headers || {})
@@ -96,7 +99,8 @@ export function createExpressRegistry<
             decorator,
             req as any,
             {
-              next: next as () => Promise<void>
+              next: next as () => Promise<void>,
+              originalRequest: req
             }
           );
           if (haltResult && isHttpResponseObject(haltResult)) {
@@ -119,7 +123,8 @@ export function createExpressRegistry<
           res.locals.diScope, 
           req as any, 
           { 
-            next: next as () => Promise<void> 
+            next: next as () => Promise<void>,
+            originalRequest: req
           }
         );
         if (haltResult && isHttpResponseObject(haltResult)) {

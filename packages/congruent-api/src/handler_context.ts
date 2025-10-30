@@ -20,13 +20,15 @@ export type MiddlewareHandlerContextOverlapGuard<TInjected> =
 
 export type MiddlewareHandlerContext<TInjected = {}> = {
   next: () => Promise<void>;
+  originalRequest: any;
 } & Readonly<TInjected>;
 
 export type EndpointHandlerContext<TInjected = {}> = {
-  // nothing yet
+  originalRequest: any;
 } & Readonly<TInjected>;
 
 // this does not need a context overlap guard because decorators get their dependencies through constructor injection
 export type DecoratorHandlerContext = {
   next: () => Promise<void>;
+  originalRequest: any;
 };

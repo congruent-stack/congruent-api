@@ -43,6 +43,10 @@ describe('api_client', () => {
   const apiReg = createExpressRegistry(app, container, contract);
 
   route(apiReg, 'POST /api/foo/:myparam')
+    .inject((scope) => ({
+      foo: 'bar',
+      // originalRequest: {}, // uncommenting this line causes a type error as expected, because 'originalRequest' is already defined in EndpointHandlerContext
+    }))
     .register(async (req, _ctx) => {
       // console.log('Handler received param:', req.pathParams.myparam);
       return { 
