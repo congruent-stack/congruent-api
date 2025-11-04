@@ -126,17 +126,22 @@ export class MethodEndpointHandlerRegistryEntry<
     TDecorator extends { 
       // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
       handle(input: any, context: any): Promise<any> 
-    }
+    },
+    const TDecoratingArgs extends {} = {}
   > (
     decoratorFactory:
       // Must be a function that takes exactly the DI scope type
-      ((diScope: ReturnType<TDIContainer['createScope']>) => TDecorator) extends infer TExpected
+      ((
+        diScope: ReturnType<TDIContainer['createScope']>,
+        decoratingArgs: TDecoratingArgs
+      ) => TDecorator) extends infer TExpected
         ? TDecorator extends IEndpointHandlerDecorator<infer _TSchemas>
           ? TExpected
           : "❌ ERROR: The decoratorFactory must return an instance of a class that implements IEndpointHandlerDecorator"
-        : never
+        : never,
+    decoratingArgs: TDecoratingArgs
   ): this {
-    this._decoratorFactories.push(decoratorFactory as any);
+    this._decoratorFactories.push((scope: any) => decoratorFactory(scope, decoratingArgs));
     return this;
   }
 
@@ -144,20 +149,22 @@ export class MethodEndpointHandlerRegistryEntry<
     TDecorator extends { 
       // ⚠️⚠️⚠️ if IEndpointHandlerDecorator is changed, change it also here ⚠️⚠️⚠️
       handle(input: any, context: any): Promise<any> 
-    }
+    },
+    const TDecoratingArgs extends {} = {}
   > (
     decoratorStaticMethodFactory: (
       {
         new (...args: any[]): TDecorator;
-        create(diScope: ReturnType<TDIContainer['createScope']>): TDecorator;
+        create(diScope: ReturnType<TDIContainer['createScope']>, decoratingArgs: TDecoratingArgs): TDecorator;
       } extends infer TExpected
         ? TDecorator extends IEndpointHandlerDecorator<infer _TSchemas>
           ? TExpected
           : "❌ ERROR: The decoratorStaticMethodFactory must be a class that implements IEndpointHandlerDecorator and has a static 'create' method that takes exactly the DI scope type and returns an instance of the class"
         : never
-    )
+    ),
+    decoratingArgs: TDecoratingArgs
   ): this {
-    this._decoratorFactories.push(decoratorStaticMethodFactory.create as any);
+    this._decoratorFactories.push((scope: any) => decoratorStaticMethodFactory.create(scope, decoratingArgs));
     return this;
   }
 

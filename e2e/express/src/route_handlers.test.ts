@@ -54,8 +54,14 @@ describe('api_client', () => {
     }
   }
 
+  const RoleSchema = z.union([
+    z.literal('admin'),
+    z.literal('editor'),
+    z.literal('viewer')
+  ]);
+
   const MissingRolesForbiddenResponseBodySchema = z.object({
-    requiredRoles: z.array(z.string())
+    requiredRoles: z.array(RoleSchema).readonly()
   });
 
   const contract = apiContract({
@@ -206,6 +212,50 @@ describe('api_client', () => {
     }
   }
 
+  class RoleEnforcerSchemas implements IDecoratorHandlerSchemas {
+    responses = {
+      [HttpStatusCode.Forbidden_403]: response({
+        body: MissingRolesForbiddenResponseBodySchema
+      }),
+    };
+  }
+
+  type RoleType = z.infer<typeof RoleSchema>;
+
+  type RoleCheckerDecoratingArgs = {
+    roles: readonly RoleType[];
+  };
+
+  class RoleChecker
+  implements IEndpointHandlerDecorator<RoleEnforcerSchemas> {
+    static create(
+      diScope: ReturnType<typeof container.createScope>,
+      decoratingArgs: RoleCheckerDecoratingArgs
+    ): RoleChecker {
+      return new RoleChecker(
+        diScope.getSessionUserProvider(), 
+        decoratingArgs
+      );
+    }
+
+    private _sessionUser: ISessionUserProvider;
+    private _decoratingArgs: RoleCheckerDecoratingArgs;
+    constructor(sessionUser: ISessionUserProvider, decoratingArgs: RoleCheckerDecoratingArgs) {
+      this._sessionUser = sessionUser;
+      this._decoratingArgs = decoratingArgs;
+    }
+    
+    async handle(req: DecoratorHandlerInput<EnforceAdminDecoratorSchemas>, ctx: DecoratorHandlerContext): Promise<DecoratorHandlerOutput<EnforceAdminDecoratorSchemas>> {
+      if (!this._decoratingArgs.roles.some(role => this._sessionUser.current.roles.includes(role))) {
+        return {
+          code: HttpStatusCode.Forbidden_403,
+          body: { requiredRoles: this._decoratingArgs.roles }
+        };
+      }
+      await ctx.next();
+    }
+  }
+
 
   class BadCreateSignatureDecoratorSchemas implements IDecoratorHandlerSchemas {
     // query = z.object({
@@ -254,18 +304,24 @@ describe('api_client', () => {
 
   route(apiReg, 'GET /api/admin/dashboard')
     // ✅ SOLUTION: Automatic schema inference AND strict parameter type checking!
-    .decorateWith(EnforceAdminDecorator)
-    
+    .decorateWith(EnforceAdminDecorator, {})
+
+    .decorate((scope) => RoleChecker.create(scope, { roles: ['admin'] }), {})
+    .decorate(RoleChecker.create, { roles: ['admin'] })
+    .decorateWith(RoleChecker, { roles: ['admin'] })
+
     // ❌ Uncommenting these correctly causes compile errors:
     
     // Error: Types of parameters 'x' and 'diScope' are incompatible
-    .decorate(BadCreateSignatureDecorator.create)
-    .decorate(scope => new BadCreateSignatureDecorator()) 
+    .decorate(BadCreateSignatureDecorator.create, {})
+    .decorate(scope => new BadCreateSignatureDecorator(), {}) 
+    .decorateWith(BadCreateSignatureDecorator, {})
     
     // Error: Types of parameters 'input' and 'input' are incompatible
     // (handle method has wrong signature: string instead of DecoratorHandlerInput)
-    .decorate(BadSecondDecorator.create)
-    .decorate(scope => new BadSecondDecorator()) 
+    .decorate(BadSecondDecorator.create, {})
+    .decorate(scope => new BadSecondDecorator(), {})
+    .decorateWith(BadSecondDecorator, {})
     
     .inject(scope => ({
       sessionUser: scope.getSessionUserProvider()
