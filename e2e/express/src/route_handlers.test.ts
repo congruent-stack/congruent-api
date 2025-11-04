@@ -226,8 +226,7 @@ describe('api_client', () => {
     roles: readonly RoleType[];
   };
 
-  class RoleChecker
-  implements IEndpointHandlerDecorator<RoleEnforcerSchemas> {
+  class RoleChecker implements IEndpointHandlerDecorator<RoleEnforcerSchemas> {
     static create(
       diScope: ReturnType<typeof container.createScope>,
       decoratingArgs: RoleCheckerDecoratingArgs
