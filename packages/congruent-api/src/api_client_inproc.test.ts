@@ -1,11 +1,25 @@
 import { expect, test, describe } from 'vitest';
 import z from "zod";
 
-import { createInProcApiClient, HttpStatusCode, createRegistry, apiContract, endpoint, response, route, middleware } from "./index.js";
-import { DIContainer } from './di_container_2.js';
+import { 
+  createInProcApiClient, 
+  HttpStatusCode, 
+  createRegistry, 
+  apiContract,
+  endpoint, 
+  response, 
+  route, 
+  middleware, 
+  DIContainer,
+  IDecoratorHandlerSchemas,
+  IEndpointHandlerDecorator,
+  DecoratorHandlerInput,
+  DecoratorHandlerOutput,
+  DecoratorHandlerContext
+} from "./index.js";
 
 
-describe('My Test Suite', () => {
+describe('api_client_inproc', () => {
   
   const BaseRequestHeadersSchema = z.object({
     'x-tenant-id': z.string(),
@@ -30,7 +44,7 @@ describe('My Test Suite', () => {
 
   const CreatePokemonSchema = PokemonSchema.omit({ id: true });
 
-  type CreatePokemon = z.output<typeof CreatePokemonSchema>;
+  // type CreatePokemon = z.output<typeof CreatePokemonSchema>;
 
   const NotFoundSchema = z.object({
     userMessage: z.string(),
@@ -94,25 +108,55 @@ describe('My Test Suite', () => {
     },
   });
 
+  class TimeProfilerDecoratorSchemas implements IDecoratorHandlerSchemas {
+    responses = {
+      [HttpStatusCode.Forbidden_403]: response({
+        body: z.object({
+          foo: z.string()
+        }),
+      }),
+    };
+  }
+
+  class TimeProfilerDecorator implements IEndpointHandlerDecorator<TimeProfilerDecoratorSchemas> {
+    static create(diScope: ReturnType<typeof dicontainer.createScope>): TimeProfilerDecorator {
+      return new TimeProfilerDecorator();
+    }
+    async handle(input: DecoratorHandlerInput<TimeProfilerDecoratorSchemas>, ctx: DecoratorHandlerContext): Promise<DecoratorHandlerOutput<TimeProfilerDecoratorSchemas>> {
+      const start = performance.now();
+      await ctx.next();
+      const end = performance.now();
+      // console.log(`api_client_inproc_test: Request for "${input.path}" took ${end - start} ms`);
+      // return {
+      //   code: HttpStatusCode.Forbidden_403,
+      //   body: { 
+      //     foo: 'bar' 
+      //   }
+      // }
+    }
+  }
+
   middleware(pokedexApiReg, '/pokemons') // /:id
+    .decorateWith(TimeProfilerDecorator)
     .inject((c) => ({
       loggerSvc: c.getLoggerSvc()
     }))
     .register({
       headers: BaseRequestHeadersSchema,
-      body: BaseRequestBodySchema.optional()
+      body: BaseRequestBodySchema.optional(),
         // .optional(), -> field not provided, or explicitly `undefined`
         // .nullable(), -> field explicitly `null`
         // .nullish(),  -> field not provided, explicitly `null`, or explicitly `undefined`
-    }, async (req, next) => {
-      req.injected.loggerSvc.log(`tenant id from header = ${req.headers['x-tenant-id']}`);
+      responses: {}
+    }, async (req, ctx) => {
+      ctx.loggerSvc.log(`tenant id from header = ${req.headers['x-tenant-id']}`);
       if (req.body) {
-        req.injected.loggerSvc.log(`tenant id from body = ${req.body.tenantId}`);
+        ctx.loggerSvc.log(`tenant id from body = ${req.body.tenantId}`);
       } else {
-        req.injected.loggerSvc.log('No body provided');
+        ctx.loggerSvc.log('No body provided');
       }
-      req.injected.loggerSvc.log('Middleware triggered for Pokemons API');
-      next();
+      ctx.loggerSvc.log('Middleware triggered for Pokemons API');
+      await ctx.next();
     });
 
   route(pokedexApiReg, 'GET /pokemons/:id')
@@ -120,9 +164,9 @@ describe('My Test Suite', () => {
       pokemonSvc: scope.getPokemonSvc(),
       loggerSvc: scope.getLoggerSvc(),
     }))
-    .register(async (req) => {
-      req.injected.loggerSvc.log(`tenant id from x-tenant-id header = ${req.headers["x-tenant-id"]}`);
-      const pokemon = req.injected.pokemonSvc.getPokemon(parseInt(req.pathParams.id, 10));
+    .register(async (req, ctx) => {
+      ctx.loggerSvc.log(`tenant id from x-tenant-id header = ${req.headers["x-tenant-id"]}`);
+      const pokemon = ctx.pokemonSvc.getPokemon(parseInt(req.pathParams.id, 10));
       if (!pokemon) {
         return { code: HttpStatusCode.NotFound_404, body: { userMessage: `Pokemon with ID ${req.pathParams.id} not found` } };
       }
@@ -144,9 +188,8 @@ describe('My Test Suite', () => {
     .inject((scope) => ({
       loggerSvc: scope.getLoggerSvc(),
     }))
-    .register(async (req) => {
-      // TODO: typesafe req.headers, now is :Record<string, string>
-      req.injected.loggerSvc.log(`ROUTE HANDLER: tenant id from x-tenant-id header = ${req.headers['x-tenant-id']}, body tenant id = ${req.body.tenantId}`);
+    .register(async (req, ctx) => {
+      ctx.loggerSvc.log(`ROUTE HANDLER: tenant id from x-tenant-id header = ${req.headers['x-tenant-id']}, body tenant id = ${req.body.tenantId}`);
       return {
         code: HttpStatusCode.Created_201,
         body: 999

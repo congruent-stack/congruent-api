@@ -1,10 +1,23 @@
+import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { createClient } from "./api_client.js";
 import { ApiContract, IApiContractDefinition, ValidateApiContractDefinition } from "./api_contract.js";
-import { ApiHandlersRegistry, createRegistry, flatListAllRegistryEntries } from "./api_handlers_registry.js";
-import { MiddlewareHandlersRegistry } from "./api_middleware.js";
-import { execMiddleware } from "./api_middleware_exec.js";
+import { ApiHandlersRegistry } from "./api_handlers_registry.js";
+import { MiddlewareHandlersRegistry, MiddlewareHandlersRegistryEntryInternal } from "./api_middleware.js";
+import { execHandlerChain } from "./api_exec_handler_chain.js";
 import { route } from "./api_routing.js";
-import { DIContainer, DIContainerTestClone } from "./di_container_2.js";
+import { DIContainer, DIContainerTestClone, DIScope } from "./di_container.js";
+import { HttpResponseObject } from "./http_method_endpoint_handler_output.js";
+import { ClientHttpMethodEndpointHandlerInput } from "./http_method_endpoint_handler_input.js";
+import { triggerEndpointDecoratorNoStaticTypeCheck, triggerMiddlewareDecoratorNoStaticTypeCheck } from "./endpoint_handler_decorator.js";
+
+export interface InProcApiClientOptions<
+  TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>,
+  TDIContainer extends DIContainer
+> {
+  enhanceRequest?: (input: ClientHttpMethodEndpointHandlerInput) => ClientHttpMethodEndpointHandlerInput;
+  filterMiddleware?: (genericPath: string, middlewareIndex: number) => boolean;
+  mockEndpointResponse?: (genericPath: string, method: string, diScope: ReturnType<TDIContainer['createScope']>) => HttpResponseObject | null;
+}
 
 export function createInProcApiClient<
   TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>,
@@ -13,47 +26,94 @@ export function createInProcApiClient<
 >(
   contract: ApiContract<TDef>,
   testContainer: TDIContainerTestClone,
-  registry: ApiHandlersRegistry<TDef, TDIContainer>
+  registry: ApiHandlersRegistry<TDef, TDIContainer>,
+  options?: InProcApiClientOptions<TDef, TDIContainer>
 ) 
 {
-  const testApiReg = createRegistry(testContainer as unknown as TDIContainer, contract, {
-    handlerRegisteredCallback: (_entry) => {
-      //console.log('Registering TEST route:', entry.methodEndpoint.genericPath);
-    },
-    middlewareHandlerRegisteredCallback: (_entry) => {
-      //console.log('Registering TEST middleware:', entry.genericPath);
-    },
-  });
-
-  (registry._middlewareRegistry as MiddlewareHandlersRegistry<TDIContainer>).list.forEach(mwEntry => {
-    (testApiReg._middlewareRegistry as MiddlewareHandlersRegistry<TDIContainer>).register(mwEntry as any);
-  });
-
-  const mwReg = testApiReg._middlewareRegistry as MiddlewareHandlersRegistry<TDIContainer>;
-
-  flatListAllRegistryEntries(registry).forEach(entry => {
-    if (!entry.handler) {
-      return;
+  const mwHandlers: ICanTriggerAsync[] = [];
+  const mwReg = registry._middlewareRegistry as MiddlewareHandlersRegistry<TDIContainer>;
+  const mwNdx = 0;
+  for (const mwEntry of mwReg.list) {
+    if (!options?.filterMiddleware) {
+      addMiddlewareDecorators(mwHandlers, mwEntry);
+      mwHandlers.push(mwEntry);
+      continue;
     }
-    const rt = route(testApiReg, `${entry.methodEndpoint.method} ${entry.methodEndpoint.genericPath}` as any);
-    rt.inject(entry.injection)
-      .register(entry.handler);
-  });
+    const isIncluded = options.filterMiddleware(mwEntry.genericPath, mwNdx);
+    if (!isIncluded) {
+      continue;
+    }
+    addMiddlewareDecorators(mwHandlers, mwEntry);
+    mwHandlers.push(mwEntry);
+  }
 
   const client = createClient<TDef>(contract, async (input) => {
-    const diScope = testContainer.createScope();
-    const haltExecResponse = await execMiddleware(diScope, mwReg.list, input);
-    if (haltExecResponse) {
-      return haltExecResponse;
+    if (options?.enhanceRequest) {
+      input = options.enhanceRequest(input);
     }
-    const rt = route(testApiReg, `${input.method} ${input.genericPath}` as any);
-    const result = await rt.trigger(diScope, {
-      headers: input.headers,
-      pathParams: input.pathParams,
-      body: input.body,
-      query: input.query,
+    const diScope = testContainer.createScope();
+    const allHandlerEntries: ICanTriggerAsync[] = [...mwHandlers];
+    const endpointHandlerEntry = route(registry, `${input.method} ${input.genericPath}` as any);
+    if (!endpointHandlerEntry.handler) {
+      throw new Error(`No handler registered for ${input.method} ${input.genericPath}`);
+    }
+    endpointHandlerEntry.decoratorFactories.forEach((decoratorFactory) => {
+      allHandlerEntries.push({
+        genericPath: endpointHandlerEntry.genericPath,
+        triggerNoStaticTypeCheck: async (diScope: DIScope<any>, requestObject, context) => {
+          const decorator = decoratorFactory(diScope);
+          return await triggerEndpointDecoratorNoStaticTypeCheck(
+            endpointHandlerEntry.methodEndpoint,
+            decorator,
+            requestObject,
+            context
+          );
+        }
+      });
     });
-    return result;
+    if (options?.mockEndpointResponse) {
+      const mockResponse = options.mockEndpointResponse(input.genericPath, input.method, diScope as any);
+      if (mockResponse) {
+        allHandlerEntries.push({
+          genericPath: endpointHandlerEntry.genericPath,
+          triggerNoStaticTypeCheck: async (_diScope, _requestObject, _next) => {
+            return mockResponse;
+          }
+        });
+      } else {
+        allHandlerEntries.push(endpointHandlerEntry);
+      }
+    } else {
+      allHandlerEntries.push(endpointHandlerEntry);
+    }
+    const response = await execHandlerChain(diScope, allHandlerEntries, input);
+    if (!response) {
+      throw new Error(`No response from ${input.method} ${input.genericPath}`);
+    }
+    return response;
   });
+
   return client;
 };
+
+function addMiddlewareDecorators<
+  TDIContainer extends DIContainer
+>(
+  mwHandlers: ICanTriggerAsync[],
+  mwEntry: MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>
+) {
+  mwEntry.decoratorFactories.forEach((decoratorFactory) => {
+    mwHandlers.push({
+      genericPath: mwEntry.genericPath,
+      triggerNoStaticTypeCheck: async (diScope: DIScope<any>, requestObject, context) => {
+        const decorator = decoratorFactory(diScope);
+        return await triggerMiddlewareDecoratorNoStaticTypeCheck(
+          mwEntry,
+          decorator,
+          requestObject,
+          context
+        );
+      }
+    });
+  });
+}

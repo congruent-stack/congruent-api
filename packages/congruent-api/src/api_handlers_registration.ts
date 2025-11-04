@@ -2,7 +2,7 @@ import { IApiContractDefinition, ValidateApiContractDefinition } from "./api_con
 import { ApiHandlersRegistry } from "./api_handlers_registry.js";
 import { MethodEndpointHandlerRegistryEntry } from "./api_handlers_registry_entry.js";
 import { ExtractEndpointFromPath, MethodFirstPath, route } from "./api_routing.js";
-import { DIContainer } from "./di_container_2.js";
+import { DIContainer } from "./di_container.js";
 import { IHttpMethodEndpointDefinition, ValidateHttpMethodEndpointDefinition } from "./http_method_endpoint.js";
 import { HttpMethodEndpointHandler } from "./http_method_endpoint_handler.js";
 import { ExtractConcatenatedParamNamesFromMethodFirstPath } from "./typed_path_params.js";
