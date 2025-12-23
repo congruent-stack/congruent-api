@@ -1,7 +1,7 @@
 {
   "name": "@congruent-stack/monorepo",
   "type": "module",
-  "version": "0.11.1",
+  "version": "0.11.2",
   "description": "Typescript schema-first tooling for agnostic REST APIs.",
   "keywords": [],
   "author": "congruent-stack",

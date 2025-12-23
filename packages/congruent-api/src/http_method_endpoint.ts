@@ -29,17 +29,20 @@ export type HttpMethodEndpointResponses = Partial<{
 }>;
 
 export class HttpMethodEndpoint<const TDef extends IHttpMethodEndpointDefinition & ValidateHttpMethodEndpointDefinition<TDef>> {
-  protected _definition: TDef;
+  /** @internal */
+  _definition: TDef;
   get definition(): TDef {
     return this._definition;
   }
 
-  protected _pathSegments: readonly string[] = [];
+  /** @internal */
+  _pathSegments: readonly string[] = [];
   get pathSegments(): readonly string[] {
     return this._pathSegments;
   }
 
-  protected _cachedGenericPath: string | null = null;
+  /** @internal */
+  _cachedGenericPath: string | null = null;
   get genericPath(): string {
     if (!this._cachedGenericPath) {
       this._cachedGenericPath = `/${this._pathSegments.join('/')}`;
@@ -55,7 +58,8 @@ export class HttpMethodEndpoint<const TDef extends IHttpMethodEndpointDefinition
     ).join('/')}`;
   }
 
-  protected _method: HttpMethod = null as any;
+  /** @internal */
+  _method: HttpMethod = null as any;
   get method(): HttpMethod {
     return this._method;
   }
