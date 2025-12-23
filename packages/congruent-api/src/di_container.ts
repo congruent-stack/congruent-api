@@ -26,8 +26,10 @@ export type DIScope<R extends DIRegistry> = {
 };
 
 export class DIContainerBase<R extends DIRegistry> {
-  protected _map = new Map<string, DIRegistryEntry<any>>();
-  protected _singletonInstances = new Map<string, any>();
+  /** @internal */
+  _map = new Map<string, DIRegistryEntry<any>>();
+  /** @internal */
+  _singletonInstances = new Map<string, any>();
 
   public createScope(): DIScope<R> {
     const proxy = new Proxy({
