@@ -17,7 +17,8 @@ export class HttpMethodEndpointResponse<
   TDef extends IHttpMethodEndpointResponseDefinition<TStatus>
 > {
   
-  private _definition: TDef;
+  /** @internal */
+  _definition: TDef;
   get definition(): TDef {
     return this._definition;
   }

@@ -28,12 +28,15 @@ export class MethodEndpointHandlerRegistryEntry<
   TPathParams extends string,
   TInjected = {}
 > implements ICanTriggerAsync {
-  private _methodEndpoint: HttpMethodEndpoint<TDef>;
+  
+  /** @internal */
+  _methodEndpoint: HttpMethodEndpoint<TDef>;
   get methodEndpoint(): HttpMethodEndpoint<TDef> {
     return this._methodEndpoint;
   }
 
-  private _dicontainer: TDIContainer;
+  /** @internal */
+  _dicontainer: TDIContainer;
   public get dicontainer(): TDIContainer {
     return this._dicontainer;
   }
@@ -47,7 +50,8 @@ export class MethodEndpointHandlerRegistryEntry<
     return this._methodEndpoint.genericPath;
   }
 
-  private _handler: HttpMethodEndpointHandler<TDef, TPathParams, TInjected> | null = null;
+  /** @internal */
+  _handler: HttpMethodEndpointHandler<TDef, TPathParams, TInjected> | null = null;
   public get handler(): HttpMethodEndpointHandler<TDef, TPathParams, TInjected> | null {
     return this._handler;
   }
@@ -60,7 +64,8 @@ export class MethodEndpointHandlerRegistryEntry<
     return this;
   }
 
-  private _onHandlerRegisteredCallback: OnHandlerRegisteredCallback<TDef, TDIContainer, TPathParams> | null = null;
+  /** @internal */
+  _onHandlerRegisteredCallback: OnHandlerRegisteredCallback<TDef, TDIContainer, TPathParams> | null = null;
   _onHandlerRegistered(callback: OnHandlerRegisteredCallback<TDef, TDIContainer, TPathParams>): void {
     this._onHandlerRegisteredCallback = callback;
   }
@@ -70,7 +75,8 @@ export class MethodEndpointHandlerRegistryEntry<
     return this;
   }
 
-  private _injection: any = (_diScope: DIScope<any>) => ({});
+  /** @internal */
+  _injection: any = (_diScope: DIScope<any>) => ({});
   public get injection(): any {
     return this._injection;
   }
@@ -84,7 +90,8 @@ export class MethodEndpointHandlerRegistryEntry<
     return this as unknown as MethodEndpointHandlerRegistryEntry<TDef, TDIContainer, TPathParams, TNewInjected>;
   }
 
-  private readonly _decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] = [];
+  /** @internal */
+  readonly _decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] = [];
   public get decoratorFactories(): ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] {
     return this._decoratorFactories;
   }

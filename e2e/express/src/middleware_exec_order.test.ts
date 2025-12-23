@@ -165,7 +165,7 @@ describe("Express middleware execution order", () => {
     }
 
     route(apiReg, 'GET /some/path/:someparam')
-      .decorate(MyDecorator.create)
+      .decorate(MyDecorator.create, {})
       .inject((scope) => ({
         items: scope.getItems()
       }))
@@ -303,7 +303,7 @@ describe("Express middleware execution order", () => {
     }
 
     route(apiReg, 'GET /some/path/:someparam')
-      .decorate((scope) => new MyDecorator(scope.getItems()))
+      .decorate((scope) => new MyDecorator(scope.getItems()), {})
       .inject((scope) => ({
         items: scope.getItems()
       }))
@@ -457,7 +457,7 @@ describe("Express middleware execution order", () => {
     }
 
     route(apiReg, 'GET /some/path/:someparam')
-      .decorate(MyDecorator.create)
+      .decorate(MyDecorator.create, {})
       .inject((scope) => ({
         items: scope.getItems()
       }))

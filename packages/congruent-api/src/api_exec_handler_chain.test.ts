@@ -105,7 +105,7 @@ describe('api_exec_handler_chain', () => {
     }
 
     route(apiReg, 'GET /some/path/:someparam')
-      .decorate((scope) => new MyDecorator(scope.getItems()))
+      .decorate((scope) => new MyDecorator(scope.getItems()), {})
       .inject((scope) => ({
         items: scope.getItems()
       }))

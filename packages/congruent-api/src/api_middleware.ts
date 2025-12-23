@@ -101,32 +101,38 @@ export class MiddlewareHandlersRegistryEntryInternal<
   TInjected
 > implements ICanTriggerAsync {
   
-  private readonly _dicontainer: TDIContainer;
+  /** @internal */
+  readonly _dicontainer: TDIContainer;
   public get dicontainer(): TDIContainer {
     return this._dicontainer;
   }
   
-  private readonly _middlewareGenericPath: string;
+  /** @internal */
+  readonly _middlewareGenericPath: string;
   public get genericPath(): string {
     return this._middlewareGenericPath;
   }
 
-  private readonly _middlewarePathSegments: string[];
+  /** @internal */
+  readonly _middlewarePathSegments: string[];
   public get pathSegments(): readonly string[] {
     return this._middlewarePathSegments;
   }
 
-  private readonly _middlewareMethod: string;
+  /** @internal */
+  readonly _middlewareMethod: string;
   public get method(): string {
     return this._middlewareMethod;
   }
 
-  private readonly _middlewareSchemas: MiddlewareHandlerSchemas;
+  /** @internal */
+  readonly _middlewareSchemas: MiddlewareHandlerSchemas;
   public get middlewareSchemas(): MiddlewareHandlerSchemas {
     return this._middlewareSchemas;
   }
 
-  private readonly _handler: MiddlewareHandlerInternal<TInjected>;
+  /** @internal */
+  readonly _handler: MiddlewareHandlerInternal<TInjected>;
 
   constructor(
     diContainer: TDIContainer,
@@ -161,12 +167,14 @@ export class MiddlewareHandlersRegistryEntryInternal<
     this._middlewarePathSegments = pathSegments;
   }
 
-  private readonly _decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] = [];
+  /** @internal */
+  readonly _decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] = [];
   public get decoratorFactories(): ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] {
     return this._decoratorFactories;
   }
 
-  private _injection: any = (_dicontainer: TDIContainer) => ({});
+  /** @internal */
+  _injection: any = (_dicontainer: TDIContainer) => ({});
 
   async trigger<
     TPathParams extends string,
@@ -243,8 +251,10 @@ export class MiddlewareHandlersRegistryEntry<
   const TPath extends MiddlewarePath<TApiDef>,
   TInjected
 > {
-  private readonly _registry: MiddlewareHandlersRegistry<TDIContainer>;
-  private readonly _path: TPath;
+  /** @internal */
+  readonly _registry: MiddlewareHandlersRegistry<TDIContainer>;
+  /** @internal */
+  readonly _path: TPath;
   
   constructor(
     registry: MiddlewareHandlersRegistry<TDIContainer>,
@@ -254,7 +264,8 @@ export class MiddlewareHandlersRegistryEntry<
     this._path = path;
   }
 
-  private _injection: any = (_diScope: DIScope<any>) => ({});
+  /** @internal */
+  _injection: any = (_diScope: DIScope<any>) => ({});
   public get injection(): any {
     return this._injection;
   }
@@ -283,7 +294,8 @@ export class MiddlewareHandlersRegistryEntry<
     this._registry.register(internalEntry);
   }
 
-  private readonly _decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] = [];
+  /** @internal */
+  readonly _decoratorFactories: ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] = [];
   public get decoratorFactories(): ((scope: DIScope<any>) => IEndpointHandlerDecorator<any>)[] {
     return this._decoratorFactories;
   }
@@ -379,7 +391,8 @@ export class MiddlewareHandlersRegistry<
     this._onHandlerRegisteredCallback = callback;
   }
 
-  private readonly _list: MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>[] = [];
+  /** @internal */
+  readonly _list: MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>[] = [];
   public get list(): Readonly<MiddlewareHandlersRegistryEntryInternal<TDIContainer, unknown>[]> {
     return this._list;
   }
@@ -391,7 +404,8 @@ export class MiddlewareHandlersRegistry<
     }
   }
 
-  private _onHandlerRegisteredCallback: OnMiddlewareHandlerRegisteredCallback<TDIContainer, any> | null = null;
+  /** @internal */
+  _onHandlerRegisteredCallback: OnMiddlewareHandlerRegisteredCallback<TDIContainer, any> | null = null;
   _onHandlerRegistered(callback: OnMiddlewareHandlerRegisteredCallback<TDIContainer, unknown>): void {
     this._onHandlerRegisteredCallback = callback;
   }
