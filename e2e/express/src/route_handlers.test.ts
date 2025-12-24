@@ -18,7 +18,7 @@ import {
   DecoratorHandlerContext,
   // decoratorFactory
 } from '@congruent-stack/congruent-api';
-import { createExpressRegistry } from '@congruent-stack/congruent-api-express';
+import { createExpressRegistry, adapt } from '@congruent-stack/congruent-api-express';
 import { createFetchClient } from '@congruent-stack/congruent-api-fetch';
 
 describe('api_client', () => {
@@ -112,7 +112,9 @@ describe('api_client', () => {
   const app = express();
   app.use(express.json());
   
-  const apiReg = createExpressRegistry(app, container, contract);
+  // const apiReg = createExpressRegistry(app, container, contract);
+  adapt({ expressApp: app, diContainer: container, apiContract: contract });
+  const apiReg = contract.createRegistry<typeof container>();
 
   class TimeProfilerDecoratorSchemas implements IDecoratorHandlerSchemas {
     responses = {

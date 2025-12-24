@@ -3,7 +3,7 @@ import z from "zod";
 import express from "express";
 import request from "supertest";
 import { apiContract, createInProcApiClient, createRegistry, DecoratorHandlerInput, IDecoratorHandlerSchemas, DIContainer, endpoint, HttpStatusCode, IEndpointHandlerDecorator, middleware, response, route, DecoratorHandlerContext } from "@congruent-stack/congruent-api";
-import { createExpressRegistry } from "@congruent-stack/congruent-api-express";
+import { createExpressRegistry, adapt } from "@congruent-stack/congruent-api-express";
 import { createFetchClient } from "@congruent-stack/congruent-api-fetch";
 import type { AddressInfo } from "node:net";
 
@@ -398,7 +398,9 @@ describe("Express middleware execution order", () => {
     // Listen on random port
     const server = app.listen(0);
 
-    const apiReg = createExpressRegistry(app, container, contract);
+    // const apiReg = createExpressRegistry(app, container, contract);
+    adapt({ expressApp: app, diContainer: container, apiContract: contract });
+    const apiReg = contract.createRegistry<typeof container>();
 
     middleware(apiReg, '/some/path/:someparam')
       .inject((scope) => ({

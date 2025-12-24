@@ -1,4 +1,4 @@
-import { 
+import type { 
   Express,
   RequestHandler,
 } from 'express';
@@ -12,11 +12,24 @@ import {
   PrepareRegistryEntryCallback,
   IHttpMethodEndpointDefinition,
   ValidateHttpMethodEndpointDefinition,
-  DIContainer,
+  type DIContainer,
   isHttpResponseObject,
   triggerEndpointDecoratorNoStaticTypeCheck,
   triggerMiddlewareDecoratorNoStaticTypeCheck
 } from '@congruent-stack/congruent-api';
+
+export function adapt(params: { expressApp: Express, diContainer: any, apiContract: any }) {
+  // replace apiContract.createRegistry with express adapted version
+  params.apiContract.createRegistry = function<
+    TDIContainer extends DIContainer
+  >(): any {
+    return createExpressRegistry<any, TDIContainer>(
+      params.expressApp,
+      params.diContainer,
+      this // 'this' is the ApiContract instance (params.apiContract)
+    );
+  };
+}
 
 export function createExpressRegistry<
   TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>,

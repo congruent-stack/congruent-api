@@ -5,7 +5,7 @@ import express from "express";
 
 import { apiContract, DIContainer, endpoint, HttpStatusCode, middleware, response, route } from '@congruent-stack/congruent-api';
 import { createFetchClient } from '@congruent-stack/congruent-api-fetch';
-import { createExpressRegistry } from '@congruent-stack/congruent-api-express';
+import { createExpressRegistry, adapt } from '@congruent-stack/congruent-api-express';
 
 describe('api_client', () => {
   const contract = apiContract({
@@ -40,7 +40,9 @@ describe('api_client', () => {
   const server = app.listen(0);
   afterAll(() => server.close());
   
-  const apiReg = createExpressRegistry(app, container, contract);
+  // const apiReg = createExpressRegistry(app, container, contract);
+  adapt({ expressApp: app, diContainer: container, apiContract: contract });
+  const apiReg = contract.createRegistry<typeof container>();
 
   route(apiReg, 'POST /api/foo/:myparam')
     .inject((scope) => ({

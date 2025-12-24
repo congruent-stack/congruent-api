@@ -1,3 +1,6 @@
+// import { createRegistry, type IRegistrySettings } from "./api_handlers_registry.js";
+import { type DIContainer } from "./di_container.js";
+import { type ApiHandlersRegistry } from './api_handlers_registry.js'
 import { HttpMethodEndpoint } from "./http_method_endpoint.js";
 import { HttpMethod } from "./http_method_type.js";
 
@@ -36,6 +39,11 @@ export class ApiContract<const TDef extends IApiContractDefinition & ValidateApi
 
   cloneInitDef(): TDef {
     return ApiContract._deepCloneInitDef(this.definition, []) as TDef;
+  }
+
+  createRegistry<TDIContainer extends DIContainer>(): ApiHandlersRegistry<TDef, TDIContainer> {
+    throw new Error('Not adapted yet');
+    //return createRegistry<TDef, TDIContainer>(diContainer, this, settings);
   }
 
   private static _deepCloneInitDef(
