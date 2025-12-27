@@ -82,7 +82,11 @@ export async function triggerEndpointDecoratorNoStaticTypeCheck(
   const path = endpoint.createPath(requestObject.pathParams);
 
   return decorator.handle({ 
-    ...requestObject,
+    //...requestObject,
+    headers,
+    query,
+    body,
+    pathParams: requestObject.pathParams,
     method: endpoint.method,
     genericPath: endpoint.genericPath,
     path,

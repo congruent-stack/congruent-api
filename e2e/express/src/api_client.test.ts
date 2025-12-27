@@ -3,11 +3,19 @@ import type { AddressInfo } from "node:net";
 import z from "zod";
 import express from "express";
 
-import { apiContract, DIContainer, endpoint, HttpStatusCode, middleware, response, route } from '@congruent-stack/congruent-api';
+import { apiContract, DecoratorHandlerContext, DecoratorHandlerInput, DecoratorHandlerOutput, DIContainer, endpoint, HttpStatusCode, IDecoratorHandlerSchemas, IEndpointHandlerDecorator, middleware, response, route } from '@congruent-stack/congruent-api';
 import { createFetchClient } from '@congruent-stack/congruent-api-fetch';
 import { createExpressRegistry, adapt } from '@congruent-stack/congruent-api-express';
 
 describe('api_client', () => {
+  const CommonHeadersSchema = z.object({
+    "x-my-secret-header": z.string().optional(),
+  });
+
+  const ForbiddenResponseBodySchema = z.object({
+    userMessage: z.string(),
+  });
+
   const contract = apiContract({
     api: {
       foo: {
@@ -20,6 +28,10 @@ describe('api_client', () => {
         }),
         [':myparam']: {
           POST: endpoint({
+            headers: CommonHeadersSchema,
+            body: z.object({
+              someField: z.string(),
+            }),
             responses: {
               [HttpStatusCode.OK_200]: response({ 
                 body: z.string() 
@@ -30,6 +42,54 @@ describe('api_client', () => {
       }
     }
   });
+
+  class RoleCheckDecoratorSchemas implements IDecoratorHandlerSchemas {
+    headers = CommonHeadersSchema;
+    responses = {
+      [HttpStatusCode.Forbidden_403]: response({
+        body: ForbiddenResponseBodySchema,
+      }),
+    };
+  }
+
+  interface RoleCheckDecoratorParams {
+    roles: string[];
+  }
+
+  class RoleCheckDecorator implements IEndpointHandlerDecorator<RoleCheckDecoratorSchemas> {
+    private roles: string[];
+
+    constructor(params: RoleCheckDecoratorParams) {
+      this.roles = params.roles;
+    }
+
+    static create(_diScope: ReturnType<typeof container.createScope>, params: RoleCheckDecoratorParams): RoleCheckDecorator {
+      return new RoleCheckDecorator(params);
+    }
+    
+    async handle(input: DecoratorHandlerInput<RoleCheckDecoratorSchemas>, ctx: DecoratorHandlerContext): Promise<DecoratorHandlerOutput<RoleCheckDecoratorSchemas>> {
+      const headerValue = input.headers["x-my-secret-header"] ?? "";
+      const role = headerValue.split('-').pop();
+      if (!role) {
+        return {
+          code: HttpStatusCode.Forbidden_403,
+          body: {
+            userMessage: "You must have a role to access this resource"
+          }
+        }
+      }
+      const hasRequiredRole = this.roles.includes(role);
+      if (!hasRequiredRole) {
+        return {
+          code: HttpStatusCode.Forbidden_403,
+          body: { 
+            userMessage: "Insufficient role to access this resource"
+          }
+        }
+      }
+      await ctx.next();
+    }
+  }
 
   const app = express();
   app.use(express.json());
@@ -45,6 +105,7 @@ describe('api_client', () => {
   const apiReg = contract.createRegistry<typeof container>();
 
   route(apiReg, 'POST /api/foo/:myparam')
+    .decorateWith(RoleCheckDecorator, { roles: ['editor'] })
     .inject((scope) => ({
       foo: 'bar',
       // originalRequest: {}, // uncommenting this line causes a type error as expected, because 'originalRequest' is already defined in EndpointHandlerContext
@@ -82,14 +143,35 @@ describe('api_client', () => {
     ? (server.address() as AddressInfo).port
     : undefined;
 
-  const client = createFetchClient(contract, { baseUrl: `http://localhost:${port}` });
+  const client = createFetchClient(contract, { 
+    baseUrl: `http://localhost:${port}`,
+    enhanceRequestInit: (init) => {
+      return {
+        ...init,
+        headers: {
+          ...init?.headers,
+          'Content-Type': 'application/json',
+          ...HEADERS
+        },
+      };
+    }
+  });
+
+  const HEADERS = { 'x-my-secret-header': 'my-secret-editor' };
 
   // test with mockoon for 1000 requests -> body: "{{urlParam 'myparam'}}"
   // const client = createFetchClient(contract, { baseUrl: `http://localhost:3000` });
 
   test('Example of concurrent requests using client object', async () => {
     const arr = Array.from({ length: 150 }, (_, i) => i + 1);
-    const promises = arr.map(i => client.api.foo.myparam(i).POST());
+    const promises = arr.map(i => 
+      client.api.foo.myparam(i).POST({
+        headers: HEADERS,
+        body: {
+          someField: 'some-value',
+        }
+      })
+    );
     const responses = await Promise.allSettled(promises);
     // check that all requests were successful
     for (let i = 0; i < responses.length; i++) {
@@ -117,7 +199,10 @@ describe('api_client', () => {
       // all calls except for last one will loose the __CONTEXT__, 
       // and path param 'myparam' will be replaced with ?
       // => path will become /api/foo/?
-      return p.POST() 
+      return p.POST({
+        headers: HEADERS,
+        body: { someField: 'some-value' }
+      }) 
     });
     const responses = await Promise.allSettled(promises);
     for (let i = 0; i < responses.length; i++) {
