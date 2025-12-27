@@ -48,15 +48,25 @@ export function createFetchClient<
       : requestInit;
     const response = await fetch(fullUrlAddress, finalRequestInit);
     const responseCode = response.status as HttpStatusCode;
+    const responseHeaders = Object.fromEntries(response.headers.entries());
+
+    // TODO: Use a more robust check for empty body
+    if (responseCode === HttpStatusCode.NoContent_204 
+    || responseCode === HttpStatusCode.NotModified_304) {
+      return {
+        code: responseCode,
+        headers: responseHeaders,
+        body: undefined,
+      };
+    }
+
     const responseContentType = response.headers.get("content-type") || "";
     if (!responseContentType.includes("application/json")) {
       // console.error(`Response [${responseCode}]`, await response.text());
       throw new Error(`Expected 'application/json' content-type in response header, but got '${responseContentType}'`);
     }
-    const responseHeaders = Object.fromEntries(response.headers.entries());
-    const responseBody = responseCode === HttpStatusCode.NoContent_204 // TODO: Use a more robust check for empty body
-      ? undefined 
-      : await response.json();
+    
+    const responseBody = await response.json();
     return {
       code: responseCode,
       headers: responseHeaders,
