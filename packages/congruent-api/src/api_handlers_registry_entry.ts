@@ -183,7 +183,7 @@ export class MethodEndpointHandlerRegistryEntry<
       query: TDef['query'] extends z.ZodType ? z.output<TDef['query']> : null; // z.output because the handler receives the parsed input
       body: TDef['body'] extends z.ZodType ? z.output<TDef['body']> : null; // z.output because the handler receives the parsed input
     }
-  ): Promise<any> {
+  ): Promise<HttpMethodEndpointHandlerOutput<TDef>> {
     return this.triggerNoStaticTypeCheck(diScope, requestObject as any, { originalRequest: requestObject });
   }
 
