@@ -23,6 +23,9 @@ describe('api_client', () => {
           responses: {
             [HttpStatusCode.OK_200]: response({
               body: z.string()
+            }),
+            [HttpStatusCode.NotFound_404]: response({
+              body: z.object({ userMessage: z.string() })
             })
           }
         }),
@@ -36,6 +39,9 @@ describe('api_client', () => {
               [HttpStatusCode.OK_200]: response({ 
                 body: z.string() 
               }),
+              [HttpStatusCode.NotFound_404]: response({
+                body: z.object({ userMessage: z.string() })
+              })
             }
           })
         }
@@ -208,11 +214,14 @@ describe('api_client', () => {
     for (let i = 0; i < responses.length; i++) {
       const res = responses[i];
       if (res.status === 'fulfilled') {
+        res.value.code
         if (res.value.code === HttpStatusCode.OK_200) {
           expect(typeof res.value.body).toBe('string');
           expect(res.value.body).toBe(`${count}`);
         } else if (res.value.code === HttpStatusCode.NotFound_404) {
           expect(res.value.body).toEqual({ userMessage: 'Not found' });
+        } else {
+          res.value.body
         }
       } else {
         expect.fail(res.reason, `Request ${i + 1} was rejected`);

@@ -21,4 +21,3 @@ export * from "./api_client_inproc.js";
 export * from "./api_middleware.js";
 export * from "./endpoint_handler_decorator.js";
 export * from "./handler_context.js";
-export * from "./zod_error_tree_schema.js";

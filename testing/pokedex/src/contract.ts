@@ -1,4 +1,4 @@
-import { apiContract, endpoint, HttpStatusCode, response, zodErrorTreeSchema } from "@congruent-stack/congruent-api";
+import { apiContract, endpoint, HttpStatusCode, response } from "@congruent-stack/congruent-api";
 import z from "zod";
 
 export const CommonHeadersSchema = z.object({
@@ -28,9 +28,11 @@ export const contract = apiContract({
             [HttpStatusCode.Forbidden_403]: response({ 
               body: UnauthorizedResponseBodySchema 
             }),
-            [HttpStatusCode.BadRequest_400]: response({ 
-              body: zodErrorTreeSchema
-            })
+            // [HttpStatusCode.BadRequest_400]: response({ 
+            //   body: z.object({
+            //     userMessage: z.string(),
+            //   })
+            // })
           }
         })
       }

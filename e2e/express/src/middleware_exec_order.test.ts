@@ -189,13 +189,17 @@ describe("Express middleware execution order", () => {
     const inProcClient = createInProcApiClient(contract, testContainer, apiReg);
 
     const inProcClientRes1 = await inProcClient.some.path.someparam('some-value').GET();
-    expect(inProcClientRes1.code).toBe(200);
+    if (inProcClientRes1.code !== 200) {
+      expect.fail(`Expected 200 OK but got ${inProcClientRes1.code}`);
+    }
     expect(inProcClientRes1.body).toBe("some-value");
     const inProcClientItems1 = JSON.parse(inProcClientRes1.headers['x-items'] as string);
     expect(inProcClientItems1).toEqual(RES_1_ITEMS);
 
     const inProcClientRes2 = await inProcClient.some.other.path.GET();
-    expect(inProcClientRes2.code).toBe(200);
+    if (inProcClientRes2.code !== 200) {
+      expect.fail(`Expected 200 OK but got ${inProcClientRes2.code}`);
+    }
     expect(inProcClientRes2.body).toBe("some-other-path");
     const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
     expect(inProcClientItems2).toEqual(RES_2_ITEMS);
@@ -336,7 +340,9 @@ describe("Express middleware execution order", () => {
     });
 
     const inProcClientRes1 = await inProcClient.some.path.someparam('some-value').GET();
-    expect(inProcClientRes1.code).toBe(200);
+    if (inProcClientRes1.code !== 200) {
+      expect.fail(`Expected 200 OK but got ${inProcClientRes1.code}`);
+    }
     expect(inProcClientRes1.body).toBe("some-value");
     const inProcClientItems1 = JSON.parse(inProcClientRes1.headers['x-items'] as string);
     expect(inProcClientItems1).toEqual(
@@ -344,9 +350,12 @@ describe("Express middleware execution order", () => {
     );
 
     const inProcClientRes2 = await inProcClient.some.other.path.GET();
+    if (inProcClientRes2.code !== HttpStatusCode.InternalServerError_500) {
+      expect.fail(`Expected 500 response but got ${inProcClientRes2.code}`);
+    }
     expect(inProcClientRes2.code).toBe(500);
     expect(inProcClientRes2.body).toBe("some-other-path-mock");
-    const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
+    const inProcClientItems2 = JSON.parse((inProcClientRes2.headers as any)['x-items'] as string);
     expect(inProcClientItems2).toEqual(
       ['h-2-mock']
     );
@@ -495,13 +504,17 @@ describe("Express middleware execution order", () => {
 
     const client = createFetchClient(contract, { baseUrl: () => `http://localhost:${port}` });
     const clientRes1 = await client.some.path.someparam('some-value').GET();
-    expect(clientRes1.code).toBe(HttpStatusCode.OK_200);
+    if (clientRes1.code !== HttpStatusCode.OK_200) {
+      expect.fail(`Expected 200 OK but got ${clientRes1.code}`);
+    }
     expect(clientRes1.body).toBe("some-value");
     const clientItems1 = JSON.parse(clientRes1.headers['x-items'] as string);
     expect(clientItems1).toEqual(RES_1_ITEMS);
 
     const clientRes2 = await client.some.other.path.GET();
-    expect(clientRes2.code).toBe(HttpStatusCode.OK_200);
+    if (clientRes2.code !== HttpStatusCode.OK_200) {
+      expect.fail(`Expected 200 OK but got ${clientRes2.code}`);
+    }
     expect(clientRes2.body).toBe("some-other-path");
     const clientItems2 = JSON.parse(clientRes2.headers['x-items'] as string);
     expect(clientItems2).toEqual(RES_2_ITEMS);
@@ -512,13 +525,17 @@ describe("Express middleware execution order", () => {
     const inProcClient = createInProcApiClient(contract, testContainer, apiReg);
 
     const inProcClientRes1 = await inProcClient.some.path.someparam('some-value').GET();
-    expect(inProcClientRes1.code).toBe(200);
+    if (inProcClientRes1.code !== HttpStatusCode.OK_200) {
+      expect.fail(`Expected 200 OK but got ${inProcClientRes1.code}`);
+    }
     expect(inProcClientRes1.body).toBe("some-value");
     const inProcClientItems1 = JSON.parse(inProcClientRes1.headers['x-items'] as string);
     expect(inProcClientItems1).toEqual(RES_1_ITEMS);
 
     const inProcClientRes2 = await inProcClient.some.other.path.GET();
-    expect(inProcClientRes2.code).toBe(200);
+    if (inProcClientRes2.code !== HttpStatusCode.OK_200) {
+      expect.fail(`Expected 200 OK but got ${inProcClientRes2.code}`);
+    }
     expect(inProcClientRes2.body).toBe("some-other-path");
     const inProcClientItems2 = JSON.parse(inProcClientRes2.headers['x-items'] as string);
     expect(inProcClientItems2).toEqual(RES_2_ITEMS);

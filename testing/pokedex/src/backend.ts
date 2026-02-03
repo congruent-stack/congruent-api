@@ -63,6 +63,16 @@ route(api, "POST /somepath/:myparam")
   }))
   .register(async (req, ctx) => {
     ctx.logger.log(`my param = ${req.pathParams.myparam}`);
+    if (req.body.age > 120) {
+      return {
+        code: HttpStatusCode.BadRequest_400,
+        // headers: null,
+        body: {
+          errors: [ "Age must be less than or equal to 120." ],
+          // userMessage: "Age must be less than or equal to 120.",
+        }
+      };
+    }
     const yearOfBirth = ctx.myService.getYearOfBirth(req.body.age);
     return {
       code: HttpStatusCode.OK_200,

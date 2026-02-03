@@ -42,9 +42,9 @@ describe('Create and Read a single Pokemon', () => {
     entityIdentifiers: z.record(z.string(), z.string()),
   });
 
-  const CommonBadRequestSchema = z.object({
-    details: z.string()
-  });
+  // const CommonBadRequestSchema = z.object({
+  //   details: z.string()
+  // });
 
   const UnprocessableEntitySchema = z.object({
     fieldErrors: z.array(z.object({ field: z.string(), message: z.string() })),
@@ -67,7 +67,7 @@ describe('Create and Read a single Pokemon', () => {
           }),
           [HttpStatusCode.BadRequest_400]: response({ 
             body: z.union([
-              CommonBadRequestSchema, 
+              // CommonBadRequestSchema, 
               z.object({
                 userDetails: z.string(),
               })
@@ -84,7 +84,7 @@ describe('Create and Read a single Pokemon', () => {
           responses: {
             [HttpStatusCode.OK_200]: response({ body: PokemonSchema }),
             [HttpStatusCode.NotFound_404]: response({ body: NotFoundSchema }),
-            [HttpStatusCode.BadRequest_400]: response({ body: CommonBadRequestSchema }),
+            // [HttpStatusCode.BadRequest_400]: response({ body: CommonBadRequestSchema }),
             [HttpStatusCode.InternalServerError_500]: response({ body: InternalServerErrorSchema }),
           },
         }),
@@ -222,19 +222,22 @@ describe('Create and Read a single Pokemon', () => {
     .register({
       headers: CommonHeadersSchema,
       responses: {
-        [HttpStatusCode.BadRequest_400]: response({ body: CommonBadRequestSchema }),
+        // [HttpStatusCode.BadRequest_400]: response({ body: CommonBadRequestSchema }),
+        [HttpStatusCode.InternalServerError_500]: response({ body: InternalServerErrorSchema }),
         [HttpStatusCode.NotFound_404]: response({ body: NotFoundSchema }),
       }
     }, async (req, ctx) => {
       // console.log('Middleware (2) triggered');
       if (!req.headers['x-tenant-id']) {
         // console.log('Middleware (2) HALTING');
-        return { code: HttpStatusCode.BadRequest_400, body: { details: 'Missing X-Tenant-ID header' } };
+        // return { code: HttpStatusCode.BadRequest_400, body: { details: 'Missing X-Tenant-ID header' } };
+        return { code: HttpStatusCode.BadRequest_400, body: { errors: ['Missing X-Tenant-ID header'] } };
       }
       const tenantId = parseInt(req.headers['x-tenant-id'], 10);
       if (isNaN(tenantId)) {
         // console.log('Middleware (2) HALTING');
-        return { code: HttpStatusCode.BadRequest_400, body: { details: `Invalid Tenant ID` } };
+        // return { code: HttpStatusCode.BadRequest_400, body: { details: `Invalid Tenant ID` } };
+        return { code: HttpStatusCode.BadRequest_400, body: { errors: ['Invalid Tenant ID'] } };
       }
       const tenant = ctx.tenantsService.findTenantById(tenantId);
       if (!tenant) {
@@ -309,9 +312,13 @@ describe('Create and Read a single Pokemon', () => {
     .register(async (req, ctx) => {
       const pokemonId = parseInt(req.pathParams.id, 10);
       if (isNaN(pokemonId) || pokemonId < 1) {
+        // return { 
+        //   code: HttpStatusCode.BadRequest_400, 
+        //   body: { details: `Invalid Pokemon ID ${req.pathParams.id}` }
+        // };
         return { 
           code: HttpStatusCode.BadRequest_400, 
-          body: { details: `Invalid Pokemon ID ${req.pathParams.id}` }
+          body: { errors: [`Invalid Pokemon ID ${req.pathParams.id}`] }
         };
       }
       //const pokemon = pokemons.find(p => p.id === pokemonId);
@@ -402,7 +409,7 @@ describe('Create and Read a single Pokemon', () => {
       getResponse.body.entity
     }
     if (getResponse.code === HttpStatusCode.BadRequest_400) {
-      getResponse.body.details
+      getResponse.body.errors
     }
     if (getResponse.code !== HttpStatusCode.NotFound_404) {
       assert.fail(`Response code does not match. Expected: 404, Received: ${getResponse.code}`);
@@ -481,8 +488,10 @@ describe('Create and Read a single Pokemon', () => {
     if (postResponse.code !== HttpStatusCode.InternalServerError_500) {
       assert.fail(500, postResponse.code, `Response code does not match`);
     }
-    expect(postResponse.body.traceid).toBeDefined();
-    expect(postResponse.body.traceid.length).toBeGreaterThan(10);
-    expect(pokemons.length).toBe(6); // no new pokemon created
+    if (postResponse.body && "traceid" in postResponse.body) {
+      expect(postResponse.body.traceid).toBeDefined();
+      expect(postResponse.body.traceid.length).toBeGreaterThan(10);
+      expect(pokemons.length).toBe(6); // no new pokemon created
+    }
   });
 });

@@ -1,4 +1,4 @@
-import z from "zod";
+import z, { treeifyError } from "zod";
 import { DIContainer } from "./di_container.js";
 import { HttpMethodEndpoint, HttpMethodEndpointResponses } from "./http_method_endpoint.js";
 import { HttpMethod } from "./http_method_type.js";
@@ -36,7 +36,17 @@ export type DecoratorHandlerOutput<TDecoratorSchemas extends IDecoratorHandlerSc
       TDecoratorSchemas['responses'][THttpStatusCode] extends HttpMethodEndpointResponse<THttpStatusCode, infer TRespDef>
         ? CreateHandlerOutput<THttpStatusCode, TRespDef>
         : never;
-  }[keyof TDecoratorSchemas['responses'] & HttpStatusCode];
+  }[keyof TDecoratorSchemas['responses'] & HttpStatusCode]
+  | {
+    code: HttpStatusCode.BadRequest_400;
+    headers?: unknown;
+    body: ReturnType<typeof treeifyError<Exclude<TDecoratorSchemas['headers'] | TDecoratorSchemas['query'] | TDecoratorSchemas['body'], undefined>>>;
+  } 
+  | {
+    code: HttpStatusCode.InternalServerError_500;
+    headers?: unknown;
+    body?: unknown;
+  };
 
 export interface IEndpointHandlerDecorator<
   TDecoratorSchemas extends IDecoratorHandlerSchemas
@@ -162,11 +172,15 @@ function decoratorParseRequestDefinitionField<
             }
             break;
         }
+        const errors = [`'${key}' is required for this endpoint`];
+        if (key === 'body') {
+          errors.push("{ 'Content-Type': 'application/json' } header might be missing");
+        }
         return { 
           code: HttpStatusCode.BadRequest_400, 
-          body: `'${key}' is required for this endpoint` + (
-            key === 'body' ? ", { 'Content-Type': 'application/json' } header might be missing" : ''
-          )
+          body: {
+            errors // treeifyError return type like structure, but here we just return simple error messages
+          }
         };
       }
       return result.data;
@@ -175,7 +189,7 @@ function decoratorParseRequestDefinitionField<
     if (!result.success) {
       return { 
         code: HttpStatusCode.BadRequest_400, 
-        body: result.error.issues
+        body: treeifyError(result.error)
       };
     }
     return result.data;

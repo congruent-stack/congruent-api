@@ -313,16 +313,16 @@ describe('api_client', () => {
 
     // ❌ Uncommenting these correctly causes compile errors:
     
-    // Error: Types of parameters 'x' and 'diScope' are incompatible
-    .decorate(BadCreateSignatureDecorator.create, {})
-    .decorate(scope => new BadCreateSignatureDecorator(), {}) 
-    .decorateWith(BadCreateSignatureDecorator, {})
+    // // Error: Types of parameters 'x' and 'diScope' are incompatible
+    // .decorate(BadCreateSignatureDecorator.create, {})
+    // .decorate(scope => new BadCreateSignatureDecorator(), {}) 
+    // .decorateWith(BadCreateSignatureDecorator, {})
     
-    // Error: Types of parameters 'input' and 'input' are incompatible
-    // (handle method has wrong signature: string instead of DecoratorHandlerInput)
-    .decorate(BadSecondDecorator.create, {})
-    .decorate(scope => new BadSecondDecorator(), {})
-    .decorateWith(BadSecondDecorator, {})
+    // // Error: Types of parameters 'input' and 'input' are incompatible
+    // // (handle method has wrong signature: string instead of DecoratorHandlerInput)
+    // .decorate(BadSecondDecorator.create, {})
+    // .decorate(scope => new BadSecondDecorator(), {})
+    // .decorateWith(BadSecondDecorator, {})
     
     .inject(scope => ({
       sessionUser: scope.getSessionUserProvider()

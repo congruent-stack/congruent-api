@@ -83,6 +83,10 @@ describe('Simple unit test', () => {
         }
       });
 
+    if (response.code === HttpStatusCode.BadRequest_400) {
+      response.body
+    }
+
     if (response.code !== HttpStatusCode.OK_200) {
       expect.fail(`Expected 200 OK but got ${response.code}`);
     }
