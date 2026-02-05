@@ -84,7 +84,9 @@ describe('Simple unit test', () => {
       });
 
     if (response.code === HttpStatusCode.BadRequest_400) {
-      response.body
+      if (response.headers["x-failed-validation-sections"].includes('headers')) {
+        expect.fail(`Headers validation failed: ${JSON.stringify(response.body)}`);
+      }
     }
 
     if (response.code !== HttpStatusCode.OK_200) {

@@ -318,6 +318,9 @@ function parseRequestDefinitionField<
         }
         return { 
           code: HttpStatusCode.BadRequest_400, 
+          headers: {
+            "x-failed-validation-sections": key
+          },
           body: {
             errors // treeifyError return type like structure, but here we just return simple error messages
           }
@@ -329,6 +332,9 @@ function parseRequestDefinitionField<
     if (!result.success) {
       return { 
         code: HttpStatusCode.BadRequest_400, 
+        headers: {
+          "x-failed-validation-sections": key
+        },
         body: treeifyError(result.error)
       };
     }

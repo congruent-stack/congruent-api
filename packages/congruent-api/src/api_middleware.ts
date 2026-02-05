@@ -12,6 +12,7 @@ import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 import { IEndpointHandlerDecorator } from "./endpoint_handler_decorator.js";
 import { MiddlewareHandlerContext, MiddlewareHandlerContextOverlapGuard } from "./handler_context.js";
+import { FailedValidationSections } from "./failed_validation_sections.js";
 
 export type MiddlewareHandlerSchemas = {
   headers?: z.ZodType;
@@ -44,7 +45,9 @@ export type MiddlewareHandlerOutput<TMiddlewareSchemas extends MiddlewareHandler
   }[keyof TMiddlewareSchemas['responses'] & HttpStatusCode]
   | {
     code: HttpStatusCode.BadRequest_400;
-    headers?: unknown;
+    headers: {
+      "x-failed-validation-sections": FailedValidationSections<TMiddlewareSchemas>;
+    };
     body: ReturnType<typeof treeifyError<Exclude<TMiddlewareSchemas['headers'] | TMiddlewareSchemas['query'] | TMiddlewareSchemas['body'], undefined>>>;
   } 
   | {
@@ -458,6 +461,9 @@ function middlewareParseRequestDefinitionField<
         }
         return { 
           code: HttpStatusCode.BadRequest_400, 
+          headers: {
+            "x-failed-validation-sections": key
+          },
           body: { 
             errors // treeifyError return type like structure, but here we just return simple error messages
           }
@@ -469,6 +475,9 @@ function middlewareParseRequestDefinitionField<
     if (!result.success) {
       return { 
         code: HttpStatusCode.BadRequest_400, 
+        headers: {
+          "x-failed-validation-sections": key
+        },
         body: treeifyError(result.error)
       };
     }

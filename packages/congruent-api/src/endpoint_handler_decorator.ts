@@ -8,6 +8,7 @@ import { CreateHandlerOutput, HttpResponseObject, isHttpResponseObject } from ".
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 import { MiddlewareHandlersRegistryEntryInternal } from "./api_middleware.js";
 import { DecoratorHandlerContext } from "./handler_context.js";
+import { FailedValidationSections } from "./failed_validation_sections.js";
 
 export interface IDecoratorHandlerSchemas {
   headers?: z.ZodType;
@@ -39,7 +40,9 @@ export type DecoratorHandlerOutput<TDecoratorSchemas extends IDecoratorHandlerSc
   }[keyof TDecoratorSchemas['responses'] & HttpStatusCode]
   | {
     code: HttpStatusCode.BadRequest_400;
-    headers?: unknown;
+    headers: {
+      "x-failed-validation-sections": FailedValidationSections<TDecoratorSchemas>;
+    };
     body: ReturnType<typeof treeifyError<Exclude<TDecoratorSchemas['headers'] | TDecoratorSchemas['query'] | TDecoratorSchemas['body'], undefined>>>;
   } 
   | {
@@ -178,6 +181,9 @@ function decoratorParseRequestDefinitionField<
         }
         return { 
           code: HttpStatusCode.BadRequest_400, 
+          headers: {
+            "x-failed-validation-sections": key
+          },
           body: {
             errors // treeifyError return type like structure, but here we just return simple error messages
           }
@@ -189,6 +195,9 @@ function decoratorParseRequestDefinitionField<
     if (!result.success) {
       return { 
         code: HttpStatusCode.BadRequest_400, 
+        headers: {
+          "x-failed-validation-sections": key
+        },
         body: treeifyError(result.error)
       };
     }

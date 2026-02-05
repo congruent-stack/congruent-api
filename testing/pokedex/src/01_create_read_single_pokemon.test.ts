@@ -231,13 +231,24 @@ describe('Create and Read a single Pokemon', () => {
       if (!req.headers['x-tenant-id']) {
         // console.log('Middleware (2) HALTING');
         // return { code: HttpStatusCode.BadRequest_400, body: { details: 'Missing X-Tenant-ID header' } };
-        return { code: HttpStatusCode.BadRequest_400, body: { errors: ['Missing X-Tenant-ID header'] } };
+        return { 
+          code: HttpStatusCode.BadRequest_400, 
+          headers: {
+            "x-failed-validation-sections": "headers"
+          },
+          body: { errors: ['Missing X-Tenant-ID header'] } };
       }
       const tenantId = parseInt(req.headers['x-tenant-id'], 10);
       if (isNaN(tenantId)) {
         // console.log('Middleware (2) HALTING');
         // return { code: HttpStatusCode.BadRequest_400, body: { details: `Invalid Tenant ID` } };
-        return { code: HttpStatusCode.BadRequest_400, body: { errors: ['Invalid Tenant ID'] } };
+        return { 
+          code: HttpStatusCode.BadRequest_400, 
+          headers: {
+            "x-failed-validation-sections": "headers"
+          },
+          body: { errors: ['Invalid Tenant ID'] } 
+        };
       }
       const tenant = ctx.tenantsService.findTenantById(tenantId);
       if (!tenant) {
@@ -318,6 +329,9 @@ describe('Create and Read a single Pokemon', () => {
         // };
         return { 
           code: HttpStatusCode.BadRequest_400, 
+          headers: {
+            "x-failed-validation-sections": "path-segments",
+          },
           body: { errors: [`Invalid Pokemon ID ${req.pathParams.id}`] }
         };
       }
