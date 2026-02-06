@@ -5,6 +5,7 @@ import {
   ValidateApiContractDefinition,
   createClient,
   ClientHttpMethodEndpointHandlerInput,
+  RequestFailureCode,
 } from '@congruent-stack/congruent-api';
 
 export interface IFetchOptions {
@@ -46,7 +47,15 @@ export function createFetchClient<
     const finalRequestInit = options.enhanceRequestInit
       ? options.enhanceRequestInit(requestInit, input)
       : requestInit;
-    const response = await fetch(fullUrlAddress, finalRequestInit);
+    let response: Response;
+    try {
+      response = await fetch(fullUrlAddress, finalRequestInit);
+    } catch (error) {
+      return {
+        code: RequestFailureCode.ErrorThrown,
+        body: error instanceof Error ? error : new Error(String(error)),
+      }
+    }
     const responseCode = response.status as HttpStatusCode;
     const responseHeaders = Object.fromEntries(response.headers.entries());
 
@@ -62,11 +71,18 @@ export function createFetchClient<
 
     const responseContentType = response.headers.get("content-type") || "";
     if (!responseContentType.includes("application/json")) {
-      // console.error(`Response [${responseCode}]`, await response.text());
-      throw new Error(`Expected 'application/json' content-type in response header, but got '${responseContentType}'`);
+      throw new Error(`Expected 'application/json' in 'content-type' response header, but got '${responseContentType}'`);
     }
     
-    const responseBody = await response.json();
+    let responseBody: any;
+    try {
+      responseBody = await response.json();
+    } catch (error) {
+      return {
+        code: RequestFailureCode.ErrorThrown,
+        body: error instanceof Error ? error : new Error(String(error)),
+      }
+    }
     return {
       code: responseCode,
       headers: responseHeaders,

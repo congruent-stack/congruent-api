@@ -3,7 +3,7 @@ import type { AddressInfo } from "node:net";
 import z from "zod";
 import express from "express";
 
-import { apiContract, DecoratorHandlerContext, DecoratorHandlerInput, DecoratorHandlerOutput, DIContainer, endpoint, HttpStatusCode, IDecoratorHandlerSchemas, IEndpointHandlerDecorator, middleware, response, route } from '@congruent-stack/congruent-api';
+import { apiContract, DecoratorHandlerContext, DecoratorHandlerInput, DecoratorHandlerOutput, DIContainer, endpoint, HttpStatusCode, IDecoratorHandlerSchemas, IEndpointHandlerDecorator, middleware, RequestFailureCode, response, route } from '@congruent-stack/congruent-api';
 import { createFetchClient } from '@congruent-stack/congruent-api-fetch';
 import { createExpressRegistry, adapt } from '@congruent-stack/congruent-api-express';
 
@@ -168,6 +168,44 @@ describe('api_client', () => {
   // test with mockoon for 1000 requests -> body: "{{urlParam 'myparam'}}"
   // const client = createFetchClient(contract, { baseUrl: `http://localhost:3000` });
 
+  test('Example of a single request using client object and failing due to schema validation error (1)', async () => {
+    const response = await client.api.foo.myparam(123).POST({
+      headers: HEADERS,
+      body: {
+        // @ts-ignore
+        someField: 5//'some-value',
+      }
+    });
+    if (response.code !== RequestFailureCode.SchemaValidationFailed) {
+      expect.fail(`Expected ${RequestFailureCode.SchemaValidationFailed} SchemaValidationFailed but got ${response.code} with body ${JSON.stringify(response.body)}`);
+    }
+    expect(response.body).toHaveProperty('errors');
+  });
+
+  test('Example of a single request using client object and failing due to schema validation error (2)', async () => {
+    // @ts-ignore
+    const response = await client.api.foo.myparam(123).POST({
+      headers: HEADERS
+    });
+    if (response.code !== RequestFailureCode.SchemaValidationFailed) {
+      expect.fail(`Expected ${RequestFailureCode.SchemaValidationFailed} SchemaValidationFailed but got ${response.code} with body ${JSON.stringify(response.body)}`);
+    }
+    expect(response.body).toHaveProperty('errors');
+  });
+
+  test('Example of a single request using client object', async () => {
+    const response = await client.api.foo.myparam(123).POST({
+      headers: HEADERS,
+      body: {
+        someField: 'some-value',
+      }
+    });
+    if (response.code !== HttpStatusCode.OK_200) {
+      expect.fail(`Expected 200 OK but got ${response.code} with body ${JSON.stringify(response.body)}`);
+    }
+    expect(response.body).toBe(`123`);
+  });
+
   test('Example of concurrent requests using client object', async () => {
     const arr = Array.from({ length: 150 }, (_, i) => i + 1);
     const promises = arr.map(i => 
@@ -187,6 +225,9 @@ describe('api_client', () => {
       }
       expect(res.status).toBe('fulfilled');
       if (res.status === 'fulfilled') {
+        if (res.value.code !== HttpStatusCode.OK_200) {
+          expect.fail(`Request ${i + 1} failed with code ${res.value.code} and body ${JSON.stringify(res.value.body)}`);
+        }
         expect(res.value.code).toBe(HttpStatusCode.OK_200);
         expect(typeof res.value.body).toBe('string');
         expect(res.value.body).toBe(`${i + 1}`);
