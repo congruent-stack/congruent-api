@@ -2,9 +2,9 @@ import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { DIContainer, DIScope } from "./di_container.js";
 import { HttpMethodEndpoint, IHttpMethodEndpointDefinition, ValidateHttpMethodEndpointDefinition } from "./http_method_endpoint.js";
 import { HttpMethodEndpointHandler } from "./http_method_endpoint_handler.js";
-import { BadRequestValidationErrorResponse, HttpMethodEndpointHandlerOutput, HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
+import { HttpMethodEndpointHandlerOutput, HttpResponseObject, isHttpResponseObject } from "./http_method_endpoint_handler_output.js";
 import { HttpStatusCode } from "./http_status_code.js";
-import z from "zod";
+import z, { treeifyError } from "zod";
 import { TypedPathParams } from "./typed_path_params.js";
 import { IEndpointHandlerDecorator } from "./endpoint_handler_decorator.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
@@ -195,7 +195,7 @@ export class MethodEndpointHandlerRegistryEntry<
       query: TDef['query'] extends z.ZodType ? z.output<TDef['query']> : null; // z.output because the handler receives the parsed input
       body: TDef['body'] extends z.ZodType ? z.output<TDef['body']> : null; // z.output because the handler receives the parsed input
     }
-  ): Promise<HttpMethodEndpointHandlerOutput<TDef> | BadRequestValidationErrorResponse> {
+  ): Promise<HttpMethodEndpointHandlerOutput<TDef>> {
     if (!this._handler) {
       throw new Error('Handler not set for this endpoint');
     }
@@ -312,11 +312,18 @@ function parseRequestDefinitionField<
             }
             break;
         }
+        const errors = [`'${key}' is required for this endpoint`];
+        if (key === 'body') {
+          errors.push("{ 'Content-Type': 'application/json' } header might be missing");
+        }
         return { 
           code: HttpStatusCode.BadRequest_400, 
-          body: `'${key}' is required for this endpoint` + (
-            key === 'body' ? ", { 'Content-Type': 'application/json' } header might be missing" : ''
-          )
+          headers: {
+            "x-failed-validation-sections": key
+          },
+          body: {
+            errors // treeifyError return type like structure, but here we just return simple error messages
+          }
         };
       }
       return result.data;
@@ -325,7 +332,10 @@ function parseRequestDefinitionField<
     if (!result.success) {
       return { 
         code: HttpStatusCode.BadRequest_400, 
-        body: result.error.issues
+        headers: {
+          "x-failed-validation-sections": key
+        },
+        body: treeifyError(result.error)
       };
     }
     return result.data;

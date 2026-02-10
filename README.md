@@ -1,5 +1,6 @@
 # congruent-api
 Typescript schema-first tooling for agnostic REST APIs.
+- Compile time API contract enforcer on both ends
 
 ### Make sure that
 - tsconfig.json#compilerOptions.strict is set to true

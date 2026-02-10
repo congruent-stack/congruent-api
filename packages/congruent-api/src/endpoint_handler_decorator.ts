@@ -1,4 +1,4 @@
-import z from "zod";
+import z, { treeifyError } from "zod";
 import { DIContainer } from "./di_container.js";
 import { HttpMethodEndpoint, HttpMethodEndpointResponses } from "./http_method_endpoint.js";
 import { HttpMethod } from "./http_method_type.js";
@@ -8,6 +8,7 @@ import { CreateHandlerOutput, HttpResponseObject, isHttpResponseObject } from ".
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 import { MiddlewareHandlersRegistryEntryInternal } from "./api_middleware.js";
 import { DecoratorHandlerContext } from "./handler_context.js";
+import { FailedValidationSections } from "./failed_validation_sections.js";
 
 export interface IDecoratorHandlerSchemas {
   headers?: z.ZodType;
@@ -36,7 +37,19 @@ export type DecoratorHandlerOutput<TDecoratorSchemas extends IDecoratorHandlerSc
       TDecoratorSchemas['responses'][THttpStatusCode] extends HttpMethodEndpointResponse<THttpStatusCode, infer TRespDef>
         ? CreateHandlerOutput<THttpStatusCode, TRespDef>
         : never;
-  }[keyof TDecoratorSchemas['responses'] & HttpStatusCode];
+  }[keyof TDecoratorSchemas['responses'] & HttpStatusCode]
+  | {
+    code: HttpStatusCode.BadRequest_400;
+    headers: {
+      "x-failed-validation-sections": FailedValidationSections<TDecoratorSchemas>;
+    };
+    body: ReturnType<typeof treeifyError<Exclude<TDecoratorSchemas['headers'] | TDecoratorSchemas['query'] | TDecoratorSchemas['body'], undefined>>>;
+  } 
+  | {
+    code: HttpStatusCode.InternalServerError_500;
+    headers?: unknown;
+    body?: unknown;
+  };
 
 export interface IEndpointHandlerDecorator<
   TDecoratorSchemas extends IDecoratorHandlerSchemas
@@ -162,11 +175,18 @@ function decoratorParseRequestDefinitionField<
             }
             break;
         }
+        const errors = [`'${key}' is required for this endpoint`];
+        if (key === 'body') {
+          errors.push("{ 'Content-Type': 'application/json' } header might be missing");
+        }
         return { 
           code: HttpStatusCode.BadRequest_400, 
-          body: `'${key}' is required for this endpoint` + (
-            key === 'body' ? ", { 'Content-Type': 'application/json' } header might be missing" : ''
-          )
+          headers: {
+            "x-failed-validation-sections": key
+          },
+          body: {
+            errors // treeifyError return type like structure, but here we just return simple error messages
+          }
         };
       }
       return result.data;
@@ -175,7 +195,10 @@ function decoratorParseRequestDefinitionField<
     if (!result.success) {
       return { 
         code: HttpStatusCode.BadRequest_400, 
-        body: result.error.issues
+        headers: {
+          "x-failed-validation-sections": key
+        },
+        body: treeifyError(result.error)
       };
     }
     return result.data;

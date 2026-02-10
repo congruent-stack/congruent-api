@@ -100,6 +100,27 @@ export class DIContainer<R extends DIRegistry = {}> extends DIContainerBase<R> {
     return this as unknown as DIContainer<R & Record<K, DIRegistryEntry<T>>>;
   }
 
+  public registerTransient<K extends string, T>(
+    serviceNameCapitalizedLiteral: CapitalizedStringLiteral<K>,
+    factory: (scope: DIScope<R>) => T,
+  ): DIContainer<R & Record<K, DIRegistryEntry<T>>> {
+    return this.register(serviceNameCapitalizedLiteral, factory, 'transient');
+  }
+
+  public registerScoped<K extends string, T>(
+    serviceNameCapitalizedLiteral: CapitalizedStringLiteral<K>,
+    factory: (scope: DIScope<R>) => T,
+  ): DIContainer<R & Record<K, DIRegistryEntry<T>>> {
+    return this.register(serviceNameCapitalizedLiteral, factory, 'scoped');
+  }
+
+  public registerSingleton<K extends string, T>(
+    serviceNameCapitalizedLiteral: CapitalizedStringLiteral<K>,
+    factory: (scope: DIScope<R>) => T,
+  ): DIContainer<R & Record<K, DIRegistryEntry<T>>> {
+    return this.register(serviceNameCapitalizedLiteral, factory, 'singleton');
+  }
+
   createTestClone(): DIContainerTestClone<R, this> {
     return new DIContainerTestClone(this);
   }

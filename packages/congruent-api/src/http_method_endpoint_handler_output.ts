@@ -1,14 +1,27 @@
-import { z } from 'zod';
+import { treeifyError, z } from 'zod';
 import { IHttpMethodEndpointDefinition } from "./http_method_endpoint.js";
 import { HttpStatusCode, isHttpStatusCode } from './http_status_code.js';
 import { HttpMethodEndpointResponse } from './http_method_endpoint_response.js';
+import { FailedValidationSections } from './failed_validation_sections.js';
 
 export type HttpMethodEndpointHandlerOutput<TEndpointDefinition extends IHttpMethodEndpointDefinition> = {
-  [THttpStatusCode in keyof TEndpointDefinition['responses'] & HttpStatusCode]: 
+  [THttpStatusCode in keyof TEndpointDefinition['responses'] & HttpStatusCode]:
     TEndpointDefinition['responses'][THttpStatusCode] extends HttpMethodEndpointResponse<THttpStatusCode, infer TRespDef>
       ? CreateHandlerOutput<THttpStatusCode, TRespDef>
       : never;
-}[keyof TEndpointDefinition['responses'] & HttpStatusCode];
+}[keyof TEndpointDefinition['responses'] & HttpStatusCode]
+| {
+  code: HttpStatusCode.BadRequest_400;
+  headers: {
+    "x-failed-validation-sections": FailedValidationSections<TEndpointDefinition>;
+  };
+  body: ReturnType<typeof treeifyError<Exclude<TEndpointDefinition['headers'] | TEndpointDefinition['query'] | TEndpointDefinition['body'], undefined>>>;
+} 
+| {
+  code: HttpStatusCode.InternalServerError_500;
+  headers?: unknown;
+  body?: {};
+};
 
 export type CreateHandlerOutput<THttpStatusCode extends HttpStatusCode, TRespDef> = 
   TRespDef extends { headers: z.ZodType; body: z.ZodType; }
@@ -49,11 +62,6 @@ export type HttpResponseObject = {
   code: HttpStatusCode;
   headers?: any;
   body?: any;
-}
-
-export type BadRequestValidationErrorResponse = {
-  code: HttpStatusCode.BadRequest_400;
-  body: z.core.$ZodIssue[] | string; // string for generic errors (e.g. invalid JSON)
 }
 
 export function isHttpResponseObject(obj: any): obj is HttpResponseObject {

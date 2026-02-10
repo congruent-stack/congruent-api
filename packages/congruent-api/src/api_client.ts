@@ -1,8 +1,9 @@
 import { ApiContract, IApiContractDefinition, ValidateApiContractDefinition } from "./api_contract.js";
-import { HttpMethodCallFunc,  } from './api_client_http_method_call.js';
+import { HttpMethodCallFunc, isRequestFailureSchemaValidationFailedOutput, RequestFailureCode, RequestFailureSchemaValidationFailedOutput,  } from './api_client_http_method_call.js';
 import { HttpMethodEndpoint, IHttpMethodEndpointDefinition, ValidateHttpMethodEndpointDefinition } from './http_method_endpoint.js';
 import { ClientHttpMethodEndpointHandler } from "./http_method_endpoint_handler.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
+import { treeifyError } from "zod/v4/mini";
 
 export function createClient<
   TDef extends IApiContractDefinition & ValidateApiContractDefinition<TDef>
@@ -74,9 +75,25 @@ class InnerApiClient<TDef extends IApiContractDefinition & ValidateApiContractDe
           // Clear & reinitialize client context right before making the call
           client.__CONTEXT__ = InnerApiClient._initNewContext(); 
 
+          let schemaValidationRequestFailureOutput: RequestFailureSchemaValidationFailedOutput<any> | null = null;
+
           const headers = clientParseRequestDefinitionField(val.definition, 'headers', requestObject);
+          if (isRequestFailureSchemaValidationFailedOutput(headers)) {
+            schemaValidationRequestFailureOutput = headers;
+            return schemaValidationRequestFailureOutput;
+          }
+
           const query = clientParseRequestDefinitionField(val.definition, 'query', requestObject);
+          if (isRequestFailureSchemaValidationFailedOutput(query)) {
+            schemaValidationRequestFailureOutput = query;
+            return schemaValidationRequestFailureOutput;
+          }
+
           const body = clientParseRequestDefinitionField(val.definition, 'body', requestObject);
+          if (isRequestFailureSchemaValidationFailedOutput(body)) {
+            schemaValidationRequestFailureOutput = body;
+            return schemaValidationRequestFailureOutput;
+          }
 
           const path = `/${val.pathSegments.map(segment => 
               segment.startsWith(':') 
@@ -150,13 +167,33 @@ function clientParseRequestDefinitionField<
             }
             break;
         }
-        throw new Error(`'${key}' is required for this endpoint`);
+        // throw new Error(`'${key}' is required for this endpoint`);
+        const errors = [`'${key}' is required for this endpoint`];
+        if (key === 'body') {
+          errors.push("{ 'Content-Type': 'application/json' } header might be missing");
+        }
+        return { 
+          code: RequestFailureCode.SchemaValidationFailed,
+          headers: {
+            "x-failed-validation-sections": key
+          },
+          body: {
+            errors // treeifyError return type like structure, but here we just return simple error messages
+          }
+        };
       }
       return result.data;
     }
     const result = definition[key].safeParse(requestObject[key as keyof T]);
     if (!result.success) {
-      throw new Error(`Validation for '${key}' failed`, { cause: result.error });
+      // throw new Error(`Validation for '${key}' failed`, { cause: result.error });
+      return {
+        code: RequestFailureCode.SchemaValidationFailed,
+        headers: {
+          "x-failed-validation-sections": key
+        },
+        body: treeifyError(result.error)
+      }
     }
     return result.data;
   }

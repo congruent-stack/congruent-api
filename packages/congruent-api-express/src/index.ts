@@ -137,6 +137,19 @@ export function createExpressRegistry<
           req as any, 
           { 
             next: next as () => Promise<void>,
+            // TODO: check handler_context.ts
+            // getHeader: (name: string): string | number | readonly string[] | undefined => {
+            //   return res.getHeader(name);
+            // },
+            // setHeader: (name: string, value: string | number | readonly string[]) => {
+            //   res.setHeader(name, value);
+            // },
+            // hasHeader: (name: string) => {
+            //   return res.hasHeader(name);
+            // },
+            // removeHeader: (name: string) => {
+            //   return res.removeHeader(name);
+            // },
             originalRequest: req
           }
         );

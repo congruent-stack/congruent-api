@@ -20,6 +20,11 @@ export type MiddlewareHandlerContextOverlapGuard<TInjected> =
 
 export type MiddlewareHandlerContext<TInjected = {}> = {
   next: () => Promise<void>;
+  // TODO: check congruent-api-express/src/index.ts
+  // getHeader: (name: string) => string | number | readonly string[] | undefined;
+  // setHeader: (name: string, value: string | number | readonly string[]) => void;
+  // hasHeader: (name: string) => boolean;
+  // removeHeader: (name: string) => void;
   originalRequest: any;
 } & Readonly<TInjected>;
 

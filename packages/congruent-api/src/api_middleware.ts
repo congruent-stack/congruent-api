@@ -1,4 +1,4 @@
-import { z } from "zod";
+import { treeifyError, z } from "zod";
 import { IApiContractDefinition, ValidateApiContractDefinition } from "./api_contract.js";
 import { ApiHandlersRegistry } from "./api_handlers_registry.js";
 import { DIContainer, DIScope } from "./di_container.js";
@@ -12,6 +12,7 @@ import { ICanTriggerAsync } from "./api_can_trigger.js";
 import { HttpRequestObject } from "./http_method_endpoint_handler_input.js";
 import { IEndpointHandlerDecorator } from "./endpoint_handler_decorator.js";
 import { MiddlewareHandlerContext, MiddlewareHandlerContextOverlapGuard } from "./handler_context.js";
+import { FailedValidationSections } from "./failed_validation_sections.js";
 
 export type MiddlewareHandlerSchemas = {
   headers?: z.ZodType;
@@ -41,7 +42,19 @@ export type MiddlewareHandlerOutput<TMiddlewareSchemas extends MiddlewareHandler
       TMiddlewareSchemas['responses'][THttpStatusCode] extends HttpMethodEndpointResponse<THttpStatusCode, infer TRespDef>
         ? CreateHandlerOutput<THttpStatusCode, TRespDef>
         : never;
-  }[keyof TMiddlewareSchemas['responses'] & HttpStatusCode];
+  }[keyof TMiddlewareSchemas['responses'] & HttpStatusCode]
+  | {
+    code: HttpStatusCode.BadRequest_400;
+    headers: {
+      "x-failed-validation-sections": FailedValidationSections<TMiddlewareSchemas>;
+    };
+    body: ReturnType<typeof treeifyError<Exclude<TMiddlewareSchemas['headers'] | TMiddlewareSchemas['query'] | TMiddlewareSchemas['body'], undefined>>>;
+  } 
+  | {
+    code: HttpStatusCode.InternalServerError_500;
+    headers?: unknown;
+    body?: unknown;
+  };
 
 export type MiddlewareHandlerInputInternal = {
   method: HttpMethod;
@@ -442,11 +455,18 @@ function middlewareParseRequestDefinitionField<
             }
             break;
         }
+        const errors = [`'${key}' is required for this endpoint`];
+        if (key === 'body') {
+          errors.push("{ 'Content-Type': 'application/json' } header might be missing");
+        }
         return { 
           code: HttpStatusCode.BadRequest_400, 
-          body: `'${key}' is required for this endpoint` + (
-            key === 'body' ? ", { 'Content-Type': 'application/json' } header might be missing" : ''
-          )
+          headers: {
+            "x-failed-validation-sections": key
+          },
+          body: { 
+            errors // treeifyError return type like structure, but here we just return simple error messages
+          }
         };
       }
       return result.data;
@@ -455,7 +475,10 @@ function middlewareParseRequestDefinitionField<
     if (!result.success) {
       return { 
         code: HttpStatusCode.BadRequest_400, 
-        body: result.error.issues
+        headers: {
+          "x-failed-validation-sections": key
+        },
+        body: treeifyError(result.error)
       };
     }
     return result.data;
