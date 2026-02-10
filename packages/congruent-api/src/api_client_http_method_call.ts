@@ -54,7 +54,10 @@ export function isRequestFailureSchemaValidationFailedOutput<TEndpointDefinition
 
 export type HttpMethodCallFunc<TEndpointDefinition extends IHttpMethodEndpointDefinition> = 
   HttpMethodCallInput<TEndpointDefinition> extends never
-    ? () => Promise<HttpMethodEndpointHandlerOutput<TEndpointDefinition>>
+    ? () => Promise<
+      | HttpMethodEndpointHandlerOutput<TEndpointDefinition>
+      | RequestFailureErrorThrownOutput
+    >
     : (input: HttpMethodCallInput<TEndpointDefinition>) => Promise<
       | HttpMethodEndpointHandlerOutput<TEndpointDefinition>
       | RequestFailureErrorThrownOutput
