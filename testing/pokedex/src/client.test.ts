@@ -1,5 +1,5 @@
 import { expect, test, describe } from 'vitest';
-import { createInProcApiClient, HttpStatusCode, route } from '@congruent-stack/congruent-api';
+import { createInProcApiClient, HttpStatusCode, RequestFailureCode, route } from '@congruent-stack/congruent-api';
 import { contract } from './contract.js';
 import { container, api } from './backend.js';
 
@@ -48,6 +48,9 @@ describe('Simple in-process client unit test', () => {
         age: 25
       }
     });
+    if (response.code == RequestFailureCode.ErrorThrown) {
+      expect.fail(`Expected 403 Forbidden but got an error thrown: ${response.body}`);
+    }
     if (response.code !== HttpStatusCode.Forbidden_403) {
       expect.fail(`Expected 403 Forbidden but got ${response.code}`);
     }
