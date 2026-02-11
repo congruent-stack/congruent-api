@@ -66,7 +66,9 @@ route(api, "POST /somepath/:myparam")
     if (req.body.age > 120) {
       return {
         code: HttpStatusCode.BadRequest_400,
-        // headers: null,
+        headers: {
+          'x-failed-validation-sections': 'body'
+        },
         body: {
           errors: [ "Age must be less than or equal to 120." ],
           // userMessage: "Age must be less than or equal to 120.",
