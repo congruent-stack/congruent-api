@@ -35,7 +35,7 @@ export function createFetchClient<
     const finalFullPath = finalPath + (urlParamsString ? `?${urlParamsString}` : '');
     const baseUrl = typeof options.baseUrl === 'function' ? options.baseUrl() : options.baseUrl;
     const fullUrlAddress = new URL(finalFullPath, baseUrl);
-    // console.log(`Request: ${input.method} ${fullUrlAddress.toString()}`);
+    
     const requestInit: RequestInit = {
       method: input.method,
       headers: { 
@@ -56,10 +56,10 @@ export function createFetchClient<
         body: error instanceof Error ? error : new Error(String(error)),
       }
     }
+
     const responseCode = response.status as HttpStatusCode;
     const responseHeaders = Object.fromEntries(response.headers.entries());
 
-    // TODO: Use a more robust check for empty body
     if (responseCode === HttpStatusCode.NoContent_204 
     || responseCode === HttpStatusCode.NotModified_304) {
       return {
@@ -69,20 +69,28 @@ export function createFetchClient<
       };
     }
 
-    // const responseContentType = response.headers.get("content-type") || "";
-    // if (!responseContentType.includes("application/json")) {
-    //   throw new Error(`Expected 'application/json' in 'content-type' response header, but got '${responseContentType}'`);
-    // }
+    const responseBodyStr = await response.text();
+
+    const responseContentType = response.headers.get("content-type") || "";
+    if (!responseContentType.includes("application/json")) {
+      return {
+        code: responseCode,
+        headers: responseHeaders,
+        body: responseBodyStr,
+      };
+    }
     
     let responseBody: any;
     try {
-      responseBody = await response.json();
+      responseBody = JSON.parse(responseBodyStr);
     } catch (error) {
       return {
-        code: RequestFailureCode.ErrorThrown,
-        body: error instanceof Error ? error : new Error(String(error)),
-      }
+        code: responseCode,
+        headers: responseHeaders,
+        body: responseBodyStr,
+      };
     }
+    
     return {
       code: responseCode,
       headers: responseHeaders,
