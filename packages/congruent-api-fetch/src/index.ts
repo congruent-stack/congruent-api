@@ -69,10 +69,10 @@ export function createFetchClient<
       };
     }
 
-    const responseContentType = response.headers.get("content-type") || "";
-    if (!responseContentType.includes("application/json")) {
-      throw new Error(`Expected 'application/json' in 'content-type' response header, but got '${responseContentType}'`);
-    }
+    // const responseContentType = response.headers.get("content-type") || "";
+    // if (!responseContentType.includes("application/json")) {
+    //   throw new Error(`Expected 'application/json' in 'content-type' response header, but got '${responseContentType}'`);
+    // }
     
     let responseBody: any;
     try {
