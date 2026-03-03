@@ -81,3 +81,31 @@ route(api, "POST /somepath/:myparam")
       body: `Your year of birth is ${yearOfBirth}`
     };
   });
+
+route(api, 'POST /otherpath')
+  .inject((scope) => ({
+    foo: 'bar'
+  }))
+  .register(async (req, ctx) => {
+    // random true or false
+    const random = Math.random() < 0.5;
+    if (random) {
+      return {
+        code: HttpStatusCode.NotFound_404,
+        body: {
+          // xxx: 'yyy',
+          // foo: 'bar',
+          // aaa: 'bbb'
+        },
+      };
+    }
+    // return { code: HttpStatusCode.OK_200, body: { type: 'created' as const, challengeId: 'newChallenge.id' } };
+    return { 
+      code: HttpStatusCode.OK_200, 
+      body: { 
+        foo: 'baz',
+        // xxx: 'yyy',
+        // aaa: 'bbb'
+      } 
+    };
+  });

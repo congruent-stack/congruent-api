@@ -23,17 +23,27 @@ export type HttpMethodEndpointHandlerOutput<TEndpointDefinition extends IHttpMet
   body?: {};
 };
 
-export type CreateHandlerOutput<THttpStatusCode extends HttpStatusCode, TRespDef> = 
+// zod v4 infers z.input<z.object({})> as Record<string, never> (empty strip schema).
+// TypeScript widens {} literals in multi-branch functions to { prop?: undefined },
+// which fails the Record<string, never> index-signature check.
+// When the schema gives Record<string, never>, widen the expected input to Record<string, unknown>
+// so developers can naturally return {} (zod validates and strips at runtime).
+export type NormalizedResponseZodInput<TSchema extends z.ZodType> =
+  [z.input<TSchema>] extends [Record<string, never>] 
+    ? Record<string, unknown> 
+    : z.input<TSchema>;
+
+export type CreateHandlerOutput<THttpStatusCode extends HttpStatusCode, TRespDef> =
   TRespDef extends { headers: z.ZodType; body: z.ZodType; }
     ? {
         code: THttpStatusCode;
-        headers: z.input<TRespDef['headers']>;
-        body: z.input<TRespDef['body']>;
+        headers: NormalizedResponseZodInput<TRespDef['headers']>;
+        body: NormalizedResponseZodInput<TRespDef['body']>;
       }
     : TRespDef extends { headers: z.ZodType; }
       ? {
           code: THttpStatusCode;
-          headers: z.input<TRespDef['headers']>;
+          headers: NormalizedResponseZodInput<TRespDef['headers']>;
           // Explicitly forbid body property when response has no body
           body?: never; // it still allows assigning undefined to it, but that is fine
         }
@@ -42,7 +52,7 @@ export type CreateHandlerOutput<THttpStatusCode extends HttpStatusCode, TRespDef
             code: THttpStatusCode;
             // Explicitly forbid headers property when response has no headers
             headers?: never; // it still allows assigning undefined to it, but that is fine
-            body: z.input<TRespDef['body']>;
+            body: NormalizedResponseZodInput<TRespDef['body']>;
           }
         : {
             code: THttpStatusCode;

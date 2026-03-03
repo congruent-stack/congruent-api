@@ -36,5 +36,21 @@ export const contract = apiContract({
           }
         })
       }
+    },
+    otherpath: {
+      POST: endpoint({
+        responses: {
+          [HttpStatusCode.OK_200]: response({
+            body: z.object({
+              foo: z.string(),
+            }) 
+          }),
+          [HttpStatusCode.NotFound_404]: response({ 
+            body: z.object({
+              // xxx: z.string(),
+            }) 
+          }),
+        }
+      })
     }
   });
