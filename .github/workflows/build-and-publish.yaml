@@ -40,6 +40,7 @@ jobs:
           pnpm --filter @congruent-stack/congruent-api run build
           pnpm --filter @congruent-stack/congruent-api-fetch run build
           pnpm --filter @congruent-stack/congruent-api-express run build
+          pnpm --filter @congruent-stack/congruent-api-cli run build
 
       - name: Pnpm config for publishing
         env:
@@ -68,3 +69,4 @@ jobs:
           pnpm --filter @congruent-stack/congruent-api publish --no-git-checks --access public ${{ steps.prerelease_check.outputs.tag_arg }}
           pnpm --filter @congruent-stack/congruent-api-fetch publish --no-git-checks --access public ${{ steps.prerelease_check.outputs.tag_arg }}
           pnpm --filter @congruent-stack/congruent-api-express publish --no-git-checks --access public ${{ steps.prerelease_check.outputs.tag_arg }}
+          pnpm --filter @congruent-stack/congruent-api-cli publish --no-git-checks --access public ${{ steps.prerelease_check.outputs.tag_arg }}
